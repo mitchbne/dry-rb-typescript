@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "dry-types", "~> 1.7"
   spec.add_dependency "dry-struct", "~> 1.6"
 
+  spec.add_development_dependency "listen", "~> 3.0"
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "rake", "~> 13.0"
 end

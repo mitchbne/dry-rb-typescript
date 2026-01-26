@@ -94,6 +94,60 @@ This provides:
 - `rake typescript:generate` - Generate TypeScript files
 - `rake typescript:clean` - Remove generated files
 
+### Rails Integration with File Watching
+
+In Rails applications, dry-typescript can automatically regenerate TypeScript files when your struct files change.
+
+#### Setup
+
+1. Add the `listen` gem to your Gemfile:
+
+```ruby
+gem 'listen', group: :development
+```
+
+2. Configure in an initializer (`config/initializers/dry_typescript.rb`):
+
+```ruby
+Dry::TypeScript.configure do |config|
+  config.output_dir = Rails.root.join("app/javascript/types")
+  config.dirs = [
+    Rails.root.join("app/resources"),
+    Rails.root.join("app/structs")
+  ]
+end
+```
+
+The watcher automatically starts in development and regenerates TypeScript files when Ruby files in the configured directories change.
+
+#### Configuration Options
+
+```ruby
+# Force enable/disable listening (defaults to auto-detect)
+Dry::TypeScript.listen = true   # Force enable
+Dry::TypeScript.listen = false  # Force disable
+Dry::TypeScript.listen = nil    # Auto-detect (default)
+
+# Disable via environment variable
+ENV["DISABLE_DRY_TYPESCRIPT"] = "true"
+```
+
+#### Rake Tasks (Rails)
+
+When using Rails, these rake tasks are automatically available:
+
+- `rails dry_typescript:generate` - Generate TypeScript files from all Dry::Struct classes
+- `rails dry_typescript:refresh` - Clean and regenerate
+- `rails dry_typescript:clean` - Remove generated files
+
+#### Debugging
+
+Enable debug output to see file watching activity:
+
+```bash
+DRY_TYPESCRIPT_DEBUG=1 rails server
+```
+
 ### Features
 
 - **Fingerprint-based change detection**: Only rewrites files when content changes

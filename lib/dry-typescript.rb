@@ -19,3 +19,4 @@ require_relative "dry/typescript/struct_methods"
 require_relative "dry/typescript/generator"
 require_relative "dry/typescript/writer"
 require_relative "dry/typescript/rake_task"
+require_relative "dry/typescript/railtie" if defined?(Rails::Railtie)

@@ -5,7 +5,7 @@ module Dry
     class Config
       VALID_NULL_STRATEGIES = %i[nullable optional nullable_and_optional].freeze
 
-      attr_accessor :output_dir, :export_keyword, :type_name_transformer, :property_name_transformer
+      attr_accessor :output_dir, :export_keyword, :type_name_transformer, :property_name_transformer, :dirs, :listen
       attr_reader :null_strategy
 
       alias_method :export, :export_keyword
@@ -18,6 +18,8 @@ module Dry
         @type_mappings = TypeCompiler::PRIMITIVE_MAP.dup
         @type_name_transformer = nil
         @property_name_transformer = nil
+        @dirs = []
+        @listen = nil
       end
 
       def null_strategy=(value)
@@ -58,6 +60,28 @@ module Dry
 
       def configure
         yield config
+      end
+
+      def enabled?
+        return false if ENV["DISABLE_DRY_TYPESCRIPT"] == "true" || ENV["DISABLE_DRY_TYPESCRIPT"] == "1"
+
+        ENV["RAILS_ENV"] == "development" || ENV["RACK_ENV"] == "development" || ENV["DISABLE_DRY_TYPESCRIPT"] == "false"
+      end
+
+      def listen
+        config.listen
+      end
+
+      def listen=(value)
+        config.listen = value
+      end
+
+      def dirs
+        config.dirs
+      end
+
+      def dirs=(value)
+        config.dirs = value
       end
     end
   end
