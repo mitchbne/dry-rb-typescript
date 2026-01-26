@@ -1,0 +1,215 @@
+# frozen_string_literal: true
+
+module Dry
+  module TypeScript
+    class StructCompiler
+      def initialize(struct_class, type_name: nil, export: false, type_compiler: nil)
+        @struct_class = struct_class
+        @type_name = type_name || extract_type_name(struct_class)
+        @export = export
+        @type_compiler = type_compiler || TypeCompiler.new
+      end
+
+      def call
+        @dependencies = []
+        @inline_stack = [@struct_class]
+
+        members = compile_members
+        typescript = build_typescript(members)
+
+        { typescript: typescript, dependencies: @dependencies.uniq }
+      end
+
+      private
+
+      def extract_type_name(struct_class)
+        struct_class.name.split("::").last
+      end
+
+      def compile_members
+        @struct_class.schema.map do |key|
+          compile_member(key)
+        end
+      end
+
+      def compile_member(key)
+        ts_type = compile_type(key.type)
+        optional_marker = key.required? ? "" : "?"
+
+        "#{format_property_name(key.name)}#{optional_marker}: #{ts_type};"
+      end
+
+      def format_property_name(name)
+        name_str = name.to_s
+        return name_str if valid_ts_identifier?(name_str)
+
+        "\"#{name_str}\""
+      end
+
+      def valid_ts_identifier?(name)
+        return false if name.empty?
+        return false if ts_reserved_word?(name)
+
+        name.match?(/\A[a-zA-Z_$][a-zA-Z0-9_$]*\z/)
+      end
+
+      TS_RESERVED_WORDS = %w[
+        break case catch class const continue debugger default delete do else
+        enum export extends false finally for function if import in instanceof
+        new null return super switch this throw true try typeof var void while with
+        as implements interface let package private protected public static yield
+      ].freeze
+
+      def ts_reserved_word?(name)
+        TS_RESERVED_WORDS.include?(name)
+      end
+
+      def compile_type(type)
+        if struct_class?(type)
+          handle_struct_type(type)
+        elsif sum_with_struct?(type)
+          compile_sum_with_struct(type)
+        elsif type.respond_to?(:to_ast)
+          compile_with_struct_awareness(type)
+        else
+          "unknown"
+        end
+      end
+
+      def sum_with_struct?(type)
+        type.is_a?(Dry::Types::Sum) && contains_struct?(type)
+      end
+
+      def contains_struct?(type)
+        return struct_class?(type) if !type.is_a?(Dry::Types::Sum)
+
+        contains_struct?(type.left) || contains_struct?(type.right)
+      end
+
+      def compile_sum_with_struct(type)
+        ts_types = collect_sum_types(type).flat_map { |t| flatten_union(compile_type(t)) }.uniq
+
+        if ts_types.include?("null")
+          ts_types.delete("null")
+          ts_types << "null"
+        end
+
+        return ts_types.first if ts_types.size == 1
+
+        ts_types.join(" | ")
+      end
+
+      def collect_sum_types(type)
+        return [type] unless type.is_a?(Dry::Types::Sum)
+
+        collect_sum_types(type.left) + collect_sum_types(type.right)
+      end
+
+      def compile_with_struct_awareness(type)
+        ast = type.to_ast
+        visit(ast)
+      end
+
+      def visit(node)
+        type, body = node
+        method = :"visit_#{type}"
+        if respond_to?(method, true)
+          send(method, body)
+        else
+          @type_compiler.send(:visit, node)
+        end
+      end
+
+      def visit_nominal(node)
+        primitive, _options, _meta = node
+        if primitive.is_a?(Class) && primitive <= Dry::Struct
+          handle_struct_type(primitive)
+        else
+          @type_compiler.send(:visit, [:nominal, node])
+        end
+      end
+
+      def visit_sum(node)
+        *types, _meta = node
+        ts_types = types.flat_map { |type| flatten_union(visit(type)) }.uniq
+
+        if ts_types.include?("null")
+          ts_types.delete("null")
+          ts_types << "null"
+        end
+
+        return ts_types.first if ts_types.size == 1
+
+        ts_types.join(" | ")
+      end
+
+      def flatten_union(ts_type)
+        return [ts_type] unless ts_type.include?(" | ") && !ts_type.start_with?("(")
+
+        ts_type.split(" | ")
+      end
+
+      def visit_array(node)
+        member_type, _meta = node
+        member_ts = visit(member_type)
+        member_ts = "(#{member_ts})" if needs_parens_in_array?(member_ts)
+        "#{member_ts}[]"
+      end
+
+      def needs_parens_in_array?(member_ts)
+        member_ts.include?(" | ") || member_ts.include?(" & ")
+      end
+
+      def visit_constrained(node)
+        base_type, _rule = node
+        visit(base_type)
+      end
+
+      def visit_struct(node)
+        struct_class, _meta = node
+        handle_struct_type(struct_class)
+      end
+
+      def handle_struct_type(struct_class)
+        if struct_class == @struct_class
+          @type_name
+        elsif @inline_stack.include?(struct_class)
+          @dependencies << struct_class unless struct_class == @struct_class
+          extract_type_name(struct_class)
+        elsif inline_struct?(struct_class)
+          compile_inline_struct(struct_class)
+        else
+          @dependencies << struct_class
+          extract_type_name(struct_class)
+        end
+      end
+
+      def struct_class?(type)
+        type.is_a?(Class) && type <= Dry::Struct
+      end
+
+      def inline_struct?(struct_class)
+        parent_name = @struct_class.name
+        struct_name = struct_class.name
+        struct_name&.start_with?("#{parent_name}::")
+      end
+
+      def compile_inline_struct(struct_class)
+        @inline_stack.push(struct_class)
+        members = struct_class.schema.map do |key|
+          ts_type = compile_type(key.type)
+          optional_marker = key.required? ? "" : "?"
+          "#{format_property_name(key.name)}#{optional_marker}: #{ts_type}"
+        end
+        @inline_stack.pop
+        "{ #{members.join("; ")} }"
+      end
+
+      def build_typescript(members)
+        export_keyword = @export ? "export " : ""
+        members_str = members.map { |m| "  #{m}" }.join("\n")
+        "#{export_keyword}type #{@type_name} = {\n#{members_str}\n}"
+      end
+    end
+  end
+end
