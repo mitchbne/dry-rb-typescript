@@ -66,7 +66,7 @@ module Dry
         end
 
         def relative_path(path)
-          base = defined?(Rails) ? Rails.root.to_s : Dir.pwd
+          base = defined?(Rails) && Rails.respond_to?(:root) && Rails.root ? Rails.root.to_s : Dir.pwd
           path.to_s.sub(%r{^#{Regexp.escape(base)}/?}, "")
         end
 

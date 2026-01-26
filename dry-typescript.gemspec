@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
   spec.files = Dir.chdir(__dir__) do
     `git ls-files -z`.split("\x0").reject do |f|
       (File.expand_path(f) == __FILE__) ||
-        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile])
+        f.start_with?(*%w[bin/ test/ spec/ features/ examples/ .git .github appveyor Gemfile])
     end
   end
   spec.bindir = "exe"
@@ -33,5 +33,6 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "listen", "~> 3.0"
   spec.add_development_dependency "minitest", "~> 5.0"
+  spec.add_development_dependency "railties", ">= 7.0"
   spec.add_development_dependency "rake", "~> 13.0"
 end
