@@ -19,8 +19,8 @@ module Dry
         Symbol => "string"
       }.freeze
 
-      def initialize(primitive_map: PRIMITIVE_MAP, strict: false)
-        @primitive_map = primitive_map
+      def initialize(primitive_map: nil, strict: false)
+        @primitive_map = primitive_map || Dry::TypeScript.config.type_mappings
         @strict = strict
       end
 

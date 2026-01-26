@@ -3,11 +3,36 @@
 module Dry
   module TypeScript
     class StructCompiler
-      def initialize(struct_class, type_name: nil, export: false, type_compiler: nil)
+      def initialize(struct_class, type_name: nil, export: nil, type_compiler: nil)
         @struct_class = struct_class
-        @type_name = type_name || extract_type_name(struct_class)
-        @export = export
+        @config = build_effective_config(struct_class)
+        @type_name = type_name || per_struct_type_name || transform_type_name(extract_type_name(struct_class))
+        @export = export.nil? ? effective_export : export
         @type_compiler = type_compiler || TypeCompiler.new
+      end
+
+      def build_effective_config(struct_class)
+        base = Dry::TypeScript.config.dup
+        return base unless struct_class.respond_to?(:_typescript_config) && struct_class._typescript_config
+
+        per_struct = struct_class._typescript_config.to_h
+        base.merge(per_struct)
+      end
+
+      def per_struct_type_name
+        return nil unless @struct_class.respond_to?(:_typescript_config) && @struct_class._typescript_config
+
+        @struct_class._typescript_config.type_name
+      end
+
+      def effective_export
+        @config.export_keyword
+      end
+
+      def transform_type_name(name)
+        return name unless @config.type_name_transformer
+
+        @config.type_name_transformer.call(name)
       end
 
       def call
@@ -34,16 +59,59 @@ module Dry
 
       def compile_member(key)
         ts_type = compile_type(key.type)
-        optional_marker = key.required? ? "" : "?"
+        is_nullable_type = nullable_type?(key.type)
+        optional_marker = compute_optional_marker(key, is_nullable_type)
+        final_type = compute_final_type(ts_type, is_nullable_type)
 
-        "#{format_property_name(key.name)}#{optional_marker}: #{ts_type};"
+        "#{format_property_name(key.name)}#{optional_marker}: #{final_type};"
+      end
+
+      def nullable_type?(type)
+        if type.is_a?(Dry::Types::Sum)
+          left_nil = type.left.respond_to?(:primitive) && type.left.primitive == NilClass
+          right_nil = type.right.respond_to?(:primitive) && type.right.primitive == NilClass
+          return true if left_nil || right_nil
+        end
+        return nullable_type?(type.type) if type.respond_to?(:type)
+
+        false
+      end
+
+      def compute_optional_marker(key, is_nullable_type)
+        return "?" unless key.required?
+
+        case @config.null_strategy
+        when :optional, :nullable_and_optional
+          is_nullable_type ? "?" : ""
+        else
+          ""
+        end
+      end
+
+      def compute_final_type(ts_type, is_nullable_type)
+        case @config.null_strategy
+        when :optional
+          is_nullable_type ? strip_null(ts_type) : ts_type
+        else
+          ts_type
+        end
+      end
+
+      def strip_null(ts_type)
+        ts_type.gsub(/ \| null$/, "").gsub(/^null \| /, "")
       end
 
       def format_property_name(name)
-        name_str = name.to_s
+        name_str = transform_property_name(name.to_s)
         return name_str if valid_ts_identifier?(name_str)
 
         "\"#{name_str}\""
+      end
+
+      def transform_property_name(name)
+        return name unless @config.property_name_transformer
+
+        @config.property_name_transformer.call(name)
       end
 
       def valid_ts_identifier?(name)
