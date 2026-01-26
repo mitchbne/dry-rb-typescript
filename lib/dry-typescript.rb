@@ -13,3 +13,4 @@ end
 
 require_relative "dry/typescript/type_compiler"
 require_relative "dry/typescript/struct_compiler"
+require_relative "dry/typescript/struct_methods"
