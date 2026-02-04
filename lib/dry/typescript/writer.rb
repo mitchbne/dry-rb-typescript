@@ -90,7 +90,19 @@ module Dry
       end
 
       def extract_type_name(struct_class)
-        struct_class.name.split("::").last
+        # Use per-struct config type_name if available
+        if struct_class.respond_to?(:_typescript_config) && struct_class._typescript_config&.type_name
+          return struct_class._typescript_config.type_name
+        end
+
+        name = struct_class.name.split("::").last
+
+        # Apply global type_name_transformer if configured
+        if Dry::TypeScript.config.type_name_transformer
+          name = Dry::TypeScript.config.type_name_transformer.call(name)
+        end
+
+        name
       end
 
       def detect_collisions!(struct_classes)

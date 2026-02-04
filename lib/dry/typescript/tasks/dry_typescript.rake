@@ -5,6 +5,12 @@ namespace :dry_typescript do
   task generate: :environment do
     require "dry-typescript"
 
+    Dry::TypeScript.dirs.each do |dir|
+      if defined?(Rails) && Rails.autoloaders.main.respond_to?(:eager_load_dir)
+        Rails.autoloaders.main.eager_load_dir(dir) if Dir.exist?(dir)
+      end
+    end
+
     structs = ObjectSpace.each_object(Class).select do |klass|
       klass < Dry::Struct && klass.name && !klass.name.empty?
     end
