@@ -1,26 +1,20 @@
 # frozen_string_literal: true
 
 require_relative "ast_visitor_helpers"
+require_relative "type_naming"
 
 module Dry
   module TypeScript
     class StructCompiler
       include AstVisitorHelpers
+      include TypeNaming
 
       def initialize(struct_class, type_name: nil, export_style: nil, type_compiler: nil)
         @struct_class = struct_class
         @config = build_effective_config(struct_class)
-        @type_name = type_name || per_struct_type_name || transform_type_name(extract_type_name(struct_class))
+        @type_name = type_name || per_struct_type_name || transform_type_name(base_type_name(struct_class))
         @export_style = export_style || @config.export_style
         @type_compiler = type_compiler || TypeCompiler.new
-      end
-
-      def build_effective_config(struct_class)
-        base = Dry::TypeScript.config.dup
-        return base unless struct_class.respond_to?(:_typescript_config) && struct_class._typescript_config
-
-        per_struct = struct_class._typescript_config.to_h
-        base.merge(per_struct)
       end
 
       def per_struct_type_name
@@ -35,6 +29,18 @@ module Dry
         @config.type_name_transformer.call(name)
       end
 
+      def base_type_name(struct_class)
+        struct_class.name.split("::").last
+      end
+
+      def build_effective_config(struct_class)
+        base = Dry::TypeScript.config.dup
+        return base unless struct_class.respond_to?(:_typescript_config) && struct_class._typescript_config
+
+        per_struct = struct_class._typescript_config.to_h
+        base.merge(per_struct)
+      end
+
       def call
         @dependencies = []
         @inline_stack = [@struct_class]
@@ -46,10 +52,6 @@ module Dry
       end
 
       private
-
-      def extract_type_name(struct_class)
-        struct_class.name.split("::").last
-      end
 
       def compile_members
         @struct_class.schema.map do |key|
