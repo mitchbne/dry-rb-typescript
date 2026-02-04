@@ -32,3 +32,4 @@ Uses minitest. TDD approach - write tests first, then implement.
 - frozen_string_literal pragma on all Ruby files
 - Follow dry-rb naming conventions
 - No comments unless code is complex
+- Never use `send` or `__send__` unless absolutely necessary (e.g., calling private methods in tests)
