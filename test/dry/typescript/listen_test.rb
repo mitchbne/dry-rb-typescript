@@ -80,4 +80,5 @@ class ListenTest < Minitest::Test
   ensure
     ENV.delete("RAILS_ENV")
   end
+
 end

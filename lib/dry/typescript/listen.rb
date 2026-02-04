@@ -77,7 +77,8 @@ module Dry
         def regenerate
           return unless Dry::TypeScript.enabled?
 
-          structs = discover_structs
+          StructDiscovery.eager_load_dirs
+          structs = StructDiscovery.discover_structs
           return if structs.empty?
 
           generator = Generator.new(structs: structs)
@@ -88,12 +89,6 @@ module Dry
           writer.cleanup(current_structs: sorted)
 
           debug("Regenerated #{sorted.size} TypeScript files")
-        end
-
-        def discover_structs
-          ObjectSpace.each_object(Class).select do |klass|
-            klass < Dry::Struct && klass.name && !klass.name.empty?
-          end
         end
 
         def debug(message)

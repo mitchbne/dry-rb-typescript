@@ -5,16 +5,8 @@ namespace :dry_typescript do
   task generate: :environment do
     require "dry-typescript"
 
-    Dry::TypeScript.dirs.each do |dir|
-      if defined?(Rails) && Rails.autoloaders.main.respond_to?(:eager_load_dir)
-        Rails.autoloaders.main.eager_load_dir(dir) if Dir.exist?(dir)
-      end
-    end
-
-    structs = ObjectSpace.each_object(Class).select do |klass|
-      klass < Dry::Struct && klass.name && !klass.name.empty?
-    end
-    structs = structs.reject { |klass| klass.name.start_with?("Dry::") }
+    Dry::TypeScript::StructDiscovery.eager_load_dirs
+    structs = Dry::TypeScript::StructDiscovery.discover_structs
 
     generator = Dry::TypeScript::Generator.new(structs: structs)
     sorted = generator.sorted_structs
@@ -53,16 +45,8 @@ namespace :dry_typescript do
   task check: :environment do
     require "dry-typescript"
 
-    Dry::TypeScript.dirs.each do |dir|
-      if defined?(Rails) && Rails.autoloaders.main.respond_to?(:eager_load_dir)
-        Rails.autoloaders.main.eager_load_dir(dir) if Dir.exist?(dir)
-      end
-    end
-
-    structs = ObjectSpace.each_object(Class).select do |klass|
-      klass < Dry::Struct && klass.name && !klass.name.empty?
-    end
-    structs = structs.reject { |klass| klass.name.start_with?("Dry::") }
+    Dry::TypeScript::StructDiscovery.eager_load_dirs
+    structs = Dry::TypeScript::StructDiscovery.discover_structs
 
     checker = Dry::TypeScript::FreshnessChecker.new(
       output_dir: Dry::TypeScript.config.output_dir,
