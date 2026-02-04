@@ -6,6 +6,8 @@ require "fileutils"
 module Dry
   module TypeScript
     class Writer
+      include ExportHelpers
+
       FINGERPRINT_PREFIX = "// dry-typescript fingerprint:"
 
       attr_reader :output_dir
@@ -54,7 +56,7 @@ module Dry
         sorted_classes = struct_classes.sort_by { |s| extract_type_name(s) }
         exports = sorted_classes.map do |struct_class|
           type_name = extract_type_name(struct_class)
-          "export type { #{type_name} } from './#{type_name}'"
+          build_index_export(type_name)
         end
 
         content = exports.join("\n") + "\n"
@@ -132,7 +134,7 @@ module Dry
 
         sorted.map do |dep_class|
           type_name = extract_type_name(dep_class)
-          "import type { #{type_name} } from './#{type_name}'"
+          build_import_statement(type_name)
         end.join("\n")
       end
 

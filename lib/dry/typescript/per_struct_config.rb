@@ -3,12 +3,12 @@
 module Dry
   module TypeScript
     class StructConfigLayer
-      attr_accessor :type_name, :export, :null_strategy, :type_mappings,
+      attr_accessor :type_name, :export_style, :null_strategy, :type_mappings,
                     :type_name_transformer, :property_name_transformer
 
       def initialize
         @type_name = nil
-        @export = nil
+        @export_style = nil
         @null_strategy = nil
         @type_mappings = nil
         @type_name_transformer = nil
@@ -18,7 +18,7 @@ module Dry
       def to_h
         {
           type_name: @type_name,
-          export: @export,
+          export_style: @export_style,
           null_strategy: @null_strategy,
           type_mappings: @type_mappings,
           type_name_transformer: @type_name_transformer,

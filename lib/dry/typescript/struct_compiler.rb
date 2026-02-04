@@ -7,11 +7,11 @@ module Dry
     class StructCompiler
       include AstVisitorHelpers
 
-      def initialize(struct_class, type_name: nil, export: nil, type_compiler: nil)
+      def initialize(struct_class, type_name: nil, export_style: nil, type_compiler: nil)
         @struct_class = struct_class
         @config = build_effective_config(struct_class)
         @type_name = type_name || per_struct_type_name || transform_type_name(extract_type_name(struct_class))
-        @export = export.nil? ? effective_export : export
+        @export_style = export_style || @config.export_style
         @type_compiler = type_compiler || TypeCompiler.new
       end
 
@@ -27,10 +27,6 @@ module Dry
         return nil unless @struct_class.respond_to?(:_typescript_config) && @struct_class._typescript_config
 
         @struct_class._typescript_config.type_name
-      end
-
-      def effective_export
-        @config.export_keyword
       end
 
       def transform_type_name(name)
@@ -248,9 +244,15 @@ module Dry
       end
 
       def build_typescript(members)
-        export_keyword = @export ? "export " : ""
         members_str = members.map { |m| "  #{m}" }.join("\n")
-        "#{export_keyword}type #{@type_name} = {\n#{members_str}\n}"
+        type_definition = "type #{@type_name} = {\n#{members_str}\n}"
+
+        case @export_style
+        when :default
+          "#{type_definition}\nexport default #{@type_name}"
+        else
+          "export #{type_definition}"
+        end
       end
     end
   end

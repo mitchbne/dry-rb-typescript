@@ -208,14 +208,14 @@ module Dry
         assert_equal File.join(@output_dir, "index.ts"), result[:index]
       end
 
-      def test_write_respects_export_config
+      def test_write_respects_named_export_style
         address_class = Class.new(Dry::Struct) do
           attribute :city, Types::String
         end
         WriterTest.const_set(:TestAddress, address_class)
         Dry::TypeScript.configure do |config|
           config.output_dir = @output_dir
-          config.export_keyword = true
+          config.export_style = :named
         end
         writer = Writer.new(output_dir: @output_dir)
 
@@ -223,6 +223,24 @@ module Dry
 
         content = File.read(result)
         assert_includes content, "export type TestAddress"
+      end
+
+      def test_write_respects_default_export_style
+        address_class = Class.new(Dry::Struct) do
+          attribute :city, Types::String
+        end
+        WriterTest.const_set(:TestAddress, address_class)
+        Dry::TypeScript.configure do |config|
+          config.output_dir = @output_dir
+          config.export_style = :default
+        end
+        writer = Writer.new(output_dir: @output_dir)
+
+        result = writer.write(TestAddress)
+
+        content = File.read(result)
+        assert_includes content, "type TestAddress"
+        assert_includes content, "export default TestAddress"
       end
 
       def test_write_force_overwrites_file

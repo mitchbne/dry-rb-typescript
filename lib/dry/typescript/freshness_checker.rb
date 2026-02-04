@@ -5,6 +5,8 @@ require "fileutils"
 module Dry
   module TypeScript
     class FreshnessChecker
+      include ExportHelpers
+
       Result = ::Struct.new(:fresh?, :errors, keyword_init: true)
 
       def initialize(output_dir:, structs:)
@@ -115,7 +117,7 @@ module Dry
 
         sorted.map do |dep_class|
           type_name = extract_type_name(dep_class)
-          "import type { #{type_name} } from './#{type_name}'"
+          build_import_statement(type_name)
         end.join("\n")
       end
 
@@ -123,7 +125,7 @@ module Dry
         sorted = structs.sort_by { |s| extract_type_name(s) }
         exports = sorted.map do |struct_class|
           type_name = extract_type_name(struct_class)
-          "export type { #{type_name} } from './#{type_name}'"
+          build_index_export(type_name)
         end
 
         exports.join("\n") + "\n"

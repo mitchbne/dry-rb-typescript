@@ -1,6 +1,6 @@
 import type { Address } from './Address'
 
-type User = {
+export type User = {
   id: number;
   name: string;
   email: string;

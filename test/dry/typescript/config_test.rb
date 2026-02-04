@@ -18,7 +18,7 @@ module Dry
 
         assert_nil config.output_dir
         assert_equal :nullable, config.null_strategy
-        assert_equal false, config.export_keyword
+        assert_equal :named, config.export_style
         assert_kind_of Hash, config.type_mappings
         assert_nil config.type_name_transformer
         assert_nil config.property_name_transformer
@@ -28,12 +28,12 @@ module Dry
         Dry::TypeScript.configure do |config|
           config.output_dir = "app/javascript/types"
           config.null_strategy = :optional
-          config.export_keyword = true
+          config.export_style = :default
         end
 
         assert_equal "app/javascript/types", Dry::TypeScript.config.output_dir
         assert_equal :optional, Dry::TypeScript.config.null_strategy
-        assert_equal true, Dry::TypeScript.config.export_keyword
+        assert_equal :default, Dry::TypeScript.config.export_style
       end
 
       def test_custom_type_mappings
@@ -118,26 +118,37 @@ module Dry
         base = Config.new
         base.output_dir = "base_dir"
         base.null_strategy = :nullable
-        overrides = { output_dir: "override_dir", export_keyword: true }
+        overrides = { output_dir: "override_dir", export_style: :default }
 
         merged = base.merge(overrides)
 
         assert_equal "override_dir", merged.output_dir
         assert_equal :nullable, merged.null_strategy
-        assert_equal true, merged.export_keyword
+        assert_equal :default, merged.export_style
       end
 
-      def test_export_alias_works_bidirectionally
+      def test_export_style_validation_raises_for_invalid_value
         config = Config.new
 
-        config.export = true
+        assert_raises(ArgumentError) do
+          config.export_style = :invalid
+        end
+      end
 
-        assert_equal true, config.export
-        assert_equal true, config.export_keyword
+      def test_accepts_named_export_style
+        config = Config.new
 
-        config.export_keyword = false
+        config.export_style = :named
 
-        assert_equal false, config.export
+        assert_equal :named, config.export_style
+      end
+
+      def test_accepts_default_export_style
+        config = Config.new
+
+        config.export_style = :default
+
+        assert_equal :default, config.export_style
       end
 
       def test_type_mappings_returns_copy_to_prevent_mutation
@@ -195,9 +206,9 @@ module Dry
         Dry::TypeScript.instance_variable_set(:@config, Config.new)
       end
 
-      def test_uses_export_keyword_from_config
+      def test_named_export_style_outputs_export_type
         Dry::TypeScript.configure do |config|
-          config.export_keyword = true
+          config.export_style = :named
         end
         compiler = StructCompiler.new(ConfigTestUser)
 
@@ -206,15 +217,27 @@ module Dry
         assert_match(/^export type ConfigTestUser/, result[:typescript])
       end
 
-      def test_export_option_overrides_config
+      def test_default_export_style_outputs_export_default
         Dry::TypeScript.configure do |config|
-          config.export_keyword = true
+          config.export_style = :default
         end
-        compiler = StructCompiler.new(ConfigTestUser, export: false)
+        compiler = StructCompiler.new(ConfigTestUser)
 
         result = compiler.call
 
-        refute_match(/^export/, result[:typescript])
+        assert_includes result[:typescript], "type ConfigTestUser"
+        assert_includes result[:typescript], "export default ConfigTestUser"
+      end
+
+      def test_export_style_option_overrides_config
+        Dry::TypeScript.configure do |config|
+          config.export_style = :named
+        end
+        compiler = StructCompiler.new(ConfigTestUser, export_style: :default)
+
+        result = compiler.call
+
+        assert_includes result[:typescript], "export default ConfigTestUser"
       end
 
       def test_null_strategy_nullable_outputs_union
@@ -258,7 +281,7 @@ module Dry
 
         result = compiler.call
 
-        assert_match(/^type ConfigTestUserResponse = \{/, result[:typescript])
+        assert_match(/^export type ConfigTestUserResponse = \{/, result[:typescript])
       end
 
       def test_type_name_option_overrides_transformer
@@ -269,7 +292,7 @@ module Dry
 
         result = compiler.call
 
-        assert_match(/^type CustomName = \{/, result[:typescript])
+        assert_match(/^export type CustomName = \{/, result[:typescript])
       end
 
       def test_property_name_transformer_applies_to_properties
@@ -290,7 +313,7 @@ module Dry
 
         typescript_config do |config|
           config.type_name = "UserResponse"
-          config.export = true
+          config.export_style = :named
         end
 
         attribute :name, Types::String
@@ -328,16 +351,16 @@ module Dry
 
       def test_config_snapshot_isolation
         Dry::TypeScript.configure do |config|
-          config.export_keyword = false
+          config.export_style = :default
         end
         compiler = StructCompiler.new(ConfigTestUser)
         Dry::TypeScript.configure do |config|
-          config.export_keyword = true
+          config.export_style = :named
         end
 
         result = compiler.call
 
-        refute_match(/^export/, result[:typescript])
+        assert_includes result[:typescript], "export default ConfigTestUser"
       end
     end
   end

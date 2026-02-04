@@ -108,12 +108,16 @@ writer.cleanup(current_structs: sorted)
 ```ruby
 Dry::TypeScript.configure do |config|
   config.output_dir = "app/javascript/types"
-  config.export = true  # Adds `export` keyword: `export type User = {...}`
+  config.export_style = :named    # :named (default) or :default
   config.null_strategy = :optional  # :nullable, :optional, or :nullable_and_optional
   config.type_name_transformer = ->(name) { "#{name}DTO" }
   config.property_name_transformer = ->(name) { name.to_s.camelize(:lower) }
 end
 ```
+
+Export styles:
+- `:named` (default) - `export type User = {...}` with barrel `export type { User } from './User'`
+- `:default` - `type User = {...}` + `export default User` with barrel `export { default as User } from './User'`
 
 ### Per-Struct Configuration
 
@@ -124,7 +128,7 @@ class User < Dry::Struct
 
   typescript_config do |config|
     config.type_name = "UserResponse"
-    config.export = true
+    config.export_style = :default
   end
 
   attribute :name, Types::String

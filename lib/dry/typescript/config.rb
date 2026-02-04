@@ -4,17 +4,15 @@ module Dry
   module TypeScript
     class Config
       VALID_NULL_STRATEGIES = %i[nullable optional nullable_and_optional].freeze
+      VALID_EXPORT_STYLES = %i[named default].freeze
 
-      attr_accessor :output_dir, :export_keyword, :type_name_transformer, :property_name_transformer, :dirs, :listen
-      attr_reader :null_strategy
-
-      alias_method :export, :export_keyword
-      alias_method :export=, :export_keyword=
+      attr_accessor :output_dir, :type_name_transformer, :property_name_transformer, :dirs, :listen
+      attr_reader :null_strategy, :export_style
 
       def initialize
         @output_dir = nil
         @null_strategy = :nullable
-        @export_keyword = false
+        @export_style = :named
         @type_mappings = TypeCompiler::PRIMITIVE_MAP.dup
         @type_name_transformer = nil
         @property_name_transformer = nil
@@ -28,6 +26,14 @@ module Dry
         end
 
         @null_strategy = value
+      end
+
+      def export_style=(value)
+        unless VALID_EXPORT_STYLES.include?(value)
+          raise ArgumentError, "Invalid export_style: #{value}. Must be one of: #{VALID_EXPORT_STYLES.join(", ")}"
+        end
+
+        @export_style = value
       end
 
       def type_mappings

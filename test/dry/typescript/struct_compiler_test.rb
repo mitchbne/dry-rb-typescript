@@ -86,7 +86,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type SimpleUser = {
+          export type SimpleUser = {
             name: string;
             age: number;
           }
@@ -101,7 +101,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithOptional = {
+          export type UserWithOptional = {
             name: string;
             nickname: string | null;
           }
@@ -115,7 +115,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithArray = {
+          export type UserWithArray = {
             name: string;
             tags: string[];
           }
@@ -129,7 +129,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithNestedInline = {
+          export type UserWithNestedInline = {
             name: string;
             address: { city: string; zip: string };
           }
@@ -143,7 +143,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithReference = {
+          export type UserWithReference = {
             name: string;
             address: Address;
           }
@@ -158,7 +158,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithOptionalReference = {
+          export type UserWithOptionalReference = {
             name: string;
             address: Address | null;
           }
@@ -173,7 +173,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithArrayOfStructs = {
+          export type UserWithArrayOfStructs = {
             name: string;
             addresses: Address[];
           }
@@ -188,7 +188,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithOptionalAttribute = {
+          export type UserWithOptionalAttribute = {
             name: string;
             nickname?: string;
           }
@@ -201,15 +201,15 @@ module Dry
 
         result = compiler.call
 
-        assert_match(/^type UserDTO = \{/, result[:typescript])
+        assert_match(/^export type UserDTO = \{/, result[:typescript])
       end
 
-      def test_adds_export_keyword_when_enabled
-        compiler = StructCompiler.new(SimpleUser, export: true)
+      def test_default_export_style_outputs_export_default
+        compiler = StructCompiler.new(SimpleUser, export_style: :default)
 
         result = compiler.call
 
-        assert_match(/^export type SimpleUser = \{/, result[:typescript])
+        assert_includes result[:typescript], "export default SimpleUser"
       end
 
       def test_compiles_nested_inline_struct_with_optional_key
@@ -218,7 +218,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type UserWithNestedOptionalKey = {
+          export type UserWithNestedOptionalKey = {
             name: string;
             address: { city: string; line2?: string };
           }
@@ -249,7 +249,7 @@ module Dry
         result = compiler.call
 
         expected = <<~TS.strip
-          type SelfReferentialNode = {
+          export type SelfReferentialNode = {
             value: string;
             next: SelfReferentialNode | null;
           }

@@ -34,7 +34,7 @@ module Dry
         result = BasicUser.to_typescript
 
         expected = <<~TS.strip
-          type BasicUser = {
+          export type BasicUser = {
             name: string;
             age: number;
           }
@@ -46,19 +46,19 @@ module Dry
       def test_accepts_custom_name_option
         result = BasicUser.to_typescript(name: "UserDTO")
 
-        assert_match(/^type UserDTO = \{/, result[:typescript])
-      end
-
-      def test_accepts_export_option
-        result = BasicUser.to_typescript(export: true)
-
-        assert_match(/^export type BasicUser = \{/, result[:typescript])
-      end
-
-      def test_accepts_both_name_and_export_options
-        result = BasicUser.to_typescript(name: "UserDTO", export: true)
-
         assert_match(/^export type UserDTO = \{/, result[:typescript])
+      end
+
+      def test_accepts_default_export_style_option
+        result = BasicUser.to_typescript(export_style: :default)
+
+        assert_includes result[:typescript], "export default BasicUser"
+      end
+
+      def test_accepts_both_name_and_export_style_options
+        result = BasicUser.to_typescript(name: "UserDTO", export_style: :default)
+
+        assert_includes result[:typescript], "export default UserDTO"
       end
 
       def test_tracks_dependencies

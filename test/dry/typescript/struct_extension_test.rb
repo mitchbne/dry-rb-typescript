@@ -27,7 +27,7 @@ module Dry
         result = AutoExtendedUser.to_typescript
 
         expected = <<~TS.strip
-          type AutoExtendedUser = {
+          export type AutoExtendedUser = {
             name: string;
             email: string;
           }
