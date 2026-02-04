@@ -13,6 +13,7 @@ end
 
 require_relative "dry/typescript/type_compiler"
 require_relative "dry/typescript/config"
+require_relative "dry/typescript/transformers"
 require_relative "dry/typescript/struct_discovery"
 require_relative "dry/typescript/export_helpers"
 require_relative "dry/typescript/type_naming"

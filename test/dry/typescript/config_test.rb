@@ -284,6 +284,17 @@ module Dry
         assert_match(/^export type ConfigTestUserResponse = \{/, result[:typescript])
       end
 
+      def test_type_name_transformer_strips_struct_suffix
+        Dry::TypeScript.configure do |config|
+          config.type_name_transformer = Dry::TypeScript::Transformers.strip_struct_suffix
+        end
+
+        assert_equal "Model", Dry::TypeScript.config.type_name_transformer.call("Model::Struct")
+        assert_equal "BlahModel", Dry::TypeScript.config.type_name_transformer.call("Blah::Model::Struct")
+        assert_equal "FooBarBaz", Dry::TypeScript.config.type_name_transformer.call("Foo::Bar::Baz::Struct")
+        assert_equal "User", Dry::TypeScript.config.type_name_transformer.call("User")
+      end
+
       def test_type_name_option_overrides_transformer
         Dry::TypeScript.configure do |config|
           config.type_name_transformer = ->(name) { "#{name.split("::").last}Response" }
