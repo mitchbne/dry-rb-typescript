@@ -14,6 +14,7 @@ namespace :dry_typescript do
     structs = ObjectSpace.each_object(Class).select do |klass|
       klass < Dry::Struct && klass.name && !klass.name.empty?
     end
+    structs = structs.reject { |klass| klass.name.start_with?("Dry::") }
 
     generator = Dry::TypeScript::Generator.new(structs: structs)
     sorted = generator.sorted_structs
