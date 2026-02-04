@@ -275,7 +275,7 @@ module Dry
 
       def test_type_name_transformer_applies_to_output
         Dry::TypeScript.configure do |config|
-          config.type_name_transformer = ->(name) { "#{name}Response" }
+          config.type_name_transformer = ->(name) { "#{name.split("::").last}Response" }
         end
         compiler = StructCompiler.new(ConfigTestUser)
 
@@ -286,7 +286,7 @@ module Dry
 
       def test_type_name_option_overrides_transformer
         Dry::TypeScript.configure do |config|
-          config.type_name_transformer = ->(name) { "#{name}Response" }
+          config.type_name_transformer = ->(name) { "#{name.split("::").last}Response" }
         end
         compiler = StructCompiler.new(ConfigTestUser, type_name: "CustomName")
 

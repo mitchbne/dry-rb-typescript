@@ -8,13 +8,11 @@ module Dry
           return struct_class._typescript_config.type_name
         end
 
-        name = struct_class.name.split("::").last
-
         if Dry::TypeScript.config.type_name_transformer
-          name = Dry::TypeScript.config.type_name_transformer.call(name)
+          Dry::TypeScript.config.type_name_transformer.call(struct_class.name)
+        else
+          struct_class.name.split("::").last
         end
-
-        name
       end
     end
   end

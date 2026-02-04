@@ -24,13 +24,15 @@ module Dry
       end
 
       def transform_type_name(name)
-        return name unless @config.type_name_transformer
-
-        @config.type_name_transformer.call(name)
+        if @config.type_name_transformer
+          @config.type_name_transformer.call(name)
+        else
+          name.split("::").last
+        end
       end
 
       def base_type_name(struct_class)
-        struct_class.name.split("::").last
+        struct_class.name
       end
 
       def build_effective_config(struct_class)
