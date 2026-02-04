@@ -97,12 +97,8 @@ class RailsE2ETest < Minitest::Test
     assert File.exist?(actual_path), "Expected #{filename} to be generated"
 
     expected_content = File.read(expected_path)
-    actual_content = strip_fingerprint(File.read(actual_path))
+    actual_content = File.read(actual_path)
 
     assert_equal expected_content, actual_content, "#{filename} content mismatch"
-  end
-
-  def strip_fingerprint(content)
-    content.sub(%r{^// dry-typescript fingerprint: [a-f0-9]+\n}, "")
   end
 end
