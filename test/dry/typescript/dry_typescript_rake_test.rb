@@ -3,45 +3,58 @@
 require "test_helper"
 require "fileutils"
 require "tmpdir"
-require "rake"
-
-module DryTypescriptRakeTestStructs
-  Types = Dry.Types
-
-  class DryNamespaceExclusionTestStruct < Dry::Struct
-    attribute :name, Types::String
-  end
-end
 
 module Dry
   module TypeScript
-    class DryTypescriptRakeTest < Minitest::Test
+    class FreshnessCheckerRakeIntegrationTest < Minitest::Test
       def setup
-        @tmpdir = Dir.mktmpdir("dry_typescript_rake_test")
+        @tmpdir = Dir.mktmpdir("dry_typescript_check_test")
         @output_dir = File.join(@tmpdir, "types")
-        @original_output_dir = Dry::TypeScript.config.output_dir
-        @original_dirs = Dry::TypeScript.dirs.dup
-        Rake::Task.clear
-        Rake.application = Rake::Application.new
-        Rake::Task.define_task(:environment)
-        load File.expand_path("../../../lib/dry/typescript/tasks/dry_typescript.rake", __dir__)
+        @original_config = Dry::TypeScript.config.dup
+        Dry::TypeScript.configure do |config|
+          config.output_dir = @output_dir
+        end
       end
 
       def teardown
         FileUtils.rm_rf(@tmpdir)
-        Dry::TypeScript.config.output_dir = @original_output_dir
-        Dry::TypeScript.dirs = @original_dirs
+        Dry::TypeScript.instance_variable_set(:@config, @original_config)
       end
 
-      def test_generate_excludes_dry_namespace_classes
-        Dry::TypeScript.config.output_dir = @output_dir
+      def test_check_task_uses_freshness_checker
+        types = Dry.Types
+        person = Class.new(Dry::Struct) do
+          define_method(:self_name) { "RakeTestPerson" }
+          define_singleton_method(:name) { "RakeTestPerson" }
+          attribute :name, types::String
+        end
 
-        Rake::Task["dry_typescript:generate"].invoke
+        writer = Writer.new(output_dir: @output_dir)
+        writer.write_all([person])
 
-        refute File.exist?(File.join(@output_dir, "Value.ts")),
-          "Should not generate Value.ts for Dry::Struct::Value"
-        assert File.exist?(File.join(@output_dir, "DryNamespaceExclusionTestStruct.ts")),
-          "Should generate TypeScript file for user-defined struct"
+        checker = FreshnessChecker.new(output_dir: @output_dir, structs: [person])
+        result = checker.call
+
+        assert result.fresh?
+      end
+
+      def test_check_detects_stale_files
+        types = Dry.Types
+        person = Class.new(Dry::Struct) do
+          define_singleton_method(:name) { "RakeTestPerson" }
+          attribute :name, types::String
+        end
+
+        writer = Writer.new(output_dir: @output_dir)
+        writer.write_all([person])
+
+        File.write(File.join(@output_dir, "RakeTestPerson.ts"), "// modified")
+
+        checker = FreshnessChecker.new(output_dir: @output_dir, structs: [person])
+        result = checker.call
+
+        refute result.fresh?
+        assert_includes result.errors, "Out of date: RakeTestPerson.ts"
       end
     end
   end

@@ -48,4 +48,36 @@ namespace :dry_typescript do
       puts "Removed #{dir}"
     end
   end
+
+  desc "Check if generated TypeScript types are up to date (for CI)"
+  task check: :environment do
+    require "dry-typescript"
+
+    Dry::TypeScript.dirs.each do |dir|
+      if defined?(Rails) && Rails.autoloaders.main.respond_to?(:eager_load_dir)
+        Rails.autoloaders.main.eager_load_dir(dir) if Dir.exist?(dir)
+      end
+    end
+
+    structs = ObjectSpace.each_object(Class).select do |klass|
+      klass < Dry::Struct && klass.name && !klass.name.empty?
+    end
+    structs = structs.reject { |klass| klass.name.start_with?("Dry::") }
+
+    checker = Dry::TypeScript::FreshnessChecker.new(
+      output_dir: Dry::TypeScript.config.output_dir,
+      structs: structs
+    )
+    result = checker.call
+
+    if result.fresh?
+      puts "TypeScript types are up to date."
+    else
+      puts "TypeScript types are out of sync:"
+      result.errors.each { |e| puts "  - #{e}" }
+      puts ""
+      puts "Run 'bin/rails dry_typescript:generate' to update."
+      exit 1
+    end
+  end
 end
