@@ -121,14 +121,19 @@ Export styles:
 
 ### Per-Struct Configuration
 
+Override global settings for individual structs:
+
 ```ruby
 class User < Dry::Struct
   extend Dry::TypeScript::StructMethods
   extend Dry::TypeScript::PerStructConfig
 
   typescript_config do |config|
-    config.type_name = "UserResponse"
-    config.export_style = :default
+    config.type_name = "UserResponse"           # Custom TypeScript type name
+    config.export_style = :default              # :named or :default
+    config.null_strategy = :optional            # :nullable, :optional, or :nullable_and_optional
+    config.type_name_transformer = ->(name) { "#{name}DTO" }
+    config.property_name_transformer = ->(name) { name.to_s.camelize(:lower) }
   end
 
   attribute :name, Types::String
