@@ -139,6 +139,7 @@ When using Rails, these rake tasks are automatically available:
 - `rails dry_typescript:generate` - Generate TypeScript files from all Dry::Struct classes
 - `rails dry_typescript:refresh` - Clean and regenerate
 - `rails dry_typescript:clean` - Remove generated files
+- `rails dry_typescript:check` - Check if types are up to date (for CI)
 
 #### Debugging
 

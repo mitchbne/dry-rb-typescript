@@ -22,6 +22,7 @@ bundle exec ruby -Itest test/dry/typescript/type_compiler_test.rb
   - `visit_sum` → union types (A | B)
   - `visit_array` → array types (T[])
   - `visit_constrained` → unwraps constrained types
+- **FreshnessChecker**: Compares generated output in memory vs files on disk for CI checks
 
 ## Testing
 
