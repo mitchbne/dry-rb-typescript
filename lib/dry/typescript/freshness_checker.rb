@@ -5,7 +5,7 @@ require "fileutils"
 module Dry
   module TypeScript
     class FreshnessChecker
-      include ExportHelpers
+      include FileContentBuilder
 
       Result = ::Struct.new(:fresh?, :errors, keyword_init: true)
 
@@ -55,7 +55,7 @@ module Dry
           compiler = StructCompiler.new(struct_class)
           result = compiler.call
           filename = extract_type_name(struct_class) + ".ts"
-          content[filename] = build_file_content(result, sorted)
+          content[filename] = build_file_content(result, filter_imports_to: sorted)
         end
 
         content["index.ts"] = build_index_content(sorted)
@@ -72,63 +72,20 @@ module Dry
         return false unless File.exist?(filepath)
 
         first_line = File.open(filepath, &:readline).chomp
-        first_line.start_with?(Writer::FINGERPRINT_PREFIX)
+        first_line.start_with?(FINGERPRINT_PREFIX)
       rescue EOFError
         false
       end
 
       def normalize_content(content)
         lines = content.lines
-        if lines.first&.start_with?(Writer::FINGERPRINT_PREFIX)
-          lines.drop(1).join
+        if lines.first&.start_with?(FINGERPRINT_PREFIX)
+          remaining = lines.drop(1)
+          remaining = remaining.drop(1) if remaining.first == "\n"
+          remaining.join
         else
           content
         end
-      end
-
-      def extract_type_name(struct_class)
-        if struct_class.respond_to?(:_typescript_config) && struct_class._typescript_config&.type_name
-          return struct_class._typescript_config.type_name
-        end
-
-        name = struct_class.name.split("::").last
-
-        if Dry::TypeScript.config.type_name_transformer
-          name = Dry::TypeScript.config.type_name_transformer.call(name)
-        end
-
-        name
-      end
-
-      def build_file_content(result, all_structs)
-        imports = build_imports(result[:dependencies], all_structs)
-        typescript = result[:typescript]
-
-        if imports.empty?
-          "#{typescript}\n"
-        else
-          "#{imports}\n\n#{typescript}\n"
-        end
-      end
-
-      def build_imports(dependencies, all_structs)
-        filtered = dependencies.uniq.select { |d| all_structs.include?(d) }
-        sorted = filtered.sort_by { |d| extract_type_name(d) }
-
-        sorted.map do |dep_class|
-          type_name = extract_type_name(dep_class)
-          build_import_statement(type_name)
-        end.join("\n")
-      end
-
-      def build_index_content(structs)
-        sorted = structs.sort_by { |s| extract_type_name(s) }
-        exports = sorted.map do |struct_class|
-          type_name = extract_type_name(struct_class)
-          build_index_export(type_name)
-        end
-
-        exports.join("\n") + "\n"
       end
     end
   end
