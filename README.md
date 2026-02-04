@@ -108,7 +108,7 @@ writer.cleanup(current_structs: sorted)
 ```ruby
 Dry::TypeScript.configure do |config|
   config.output_dir = "app/javascript/types"
-  config.export_keyword = true
+  config.export_keyword = true  # Adds `export` keyword: `export type User = {...}`
   config.null_strategy = :optional  # :nullable, :optional, or :nullable_and_optional
   config.type_name_transformer = ->(name) { "#{name}DTO" }
   config.property_name_transformer = ->(name) { name.to_s.camelize(:lower) }
