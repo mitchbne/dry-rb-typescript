@@ -147,7 +147,7 @@ class User < Dry::Struct
 end
 
 User.to_typescript
-# => { typescript: "type User = {\n  name: string;\n  age: number;\n  email: string | null;\n}", dependencies: [] }
+# => { typescript: "export type User = {\n  name: string;\n  age: number;\n  email: string | null;\n}", dependencies: [] }
 ```
 
 ## Features
