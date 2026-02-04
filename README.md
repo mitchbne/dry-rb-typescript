@@ -10,26 +10,100 @@ Add to your Gemfile:
 gem 'dry-typescript'
 ```
 
-## Usage
+## Getting Started in Rails
 
-### Basic Usage
+### Setup
+
+Configure in an initializer (`config/initializers/dry_typescript.rb`):
+
+```ruby
+Dry::TypeScript.configure do |config|
+  config.output_dir = Rails.root.join("app/javascript/types")
+  config.dirs = [
+    Rails.root.join("app/resources"),
+    Rails.root.join("app/structs")
+  ]
+end
+```
+
+### Rake Tasks
+
+These rake tasks are automatically available:
+
+- `rails dry_typescript:generate` - Generate TypeScript files from all Dry::Struct classes
+- `rails dry_typescript:refresh` - Clean and regenerate
+- `rails dry_typescript:clean` - Remove generated files
+- `rails dry_typescript:check` - Check if types are up to date (exits 1 if stale, for CI)
+
+### File Watching (Optional)
+
+Add the `listen` gem to automatically regenerate TypeScript files when struct files change:
+
+```ruby
+gem 'listen', group: :development
+```
+
+The watcher starts automatically in development when `listen` is available.
+
+```ruby
+# Force enable/disable listening
+Dry::TypeScript.listen = true   # Force enable
+Dry::TypeScript.listen = false  # Force disable
+Dry::TypeScript.listen = nil    # Auto-detect (default)
+
+# Disable via environment variable
+ENV["DISABLE_DRY_TYPESCRIPT"] = "true"
+```
+
+Enable debug output:
+
+```bash
+DRY_TYPESCRIPT_DEBUG=1 rails server
+```
+
+## Getting Started (Non-Rails)
+
+### Setup
 
 ```ruby
 require 'dry-typescript'
 
-class User < Dry::Struct
-  extend Dry::TypeScript::StructMethods
-
-  attribute :name, Types::String
-  attribute :age, Types::Integer
-  attribute :email, Types::String.optional
+Dry::TypeScript.configure do |config|
+  config.output_dir = "lib/types"
 end
-
-User.to_typescript
-# => { typescript: "type User = {\n  name: string;\n  age: number;\n  email: string | null;\n}", dependencies: [] }
 ```
 
-### Configuration
+### Rake Tasks
+
+Add to your Rakefile:
+
+```ruby
+require 'dry/typescript/rake_task'
+
+Dry::TypeScript::RakeTask.new(:typescript) do |t|
+  t.output_dir = "lib/types"
+  t.structs = [User, Address, Order]
+end
+```
+
+This provides:
+- `rake typescript:generate` - Generate TypeScript files
+- `rake typescript:clean` - Remove generated files
+
+### Manual Generation
+
+```ruby
+generator = Dry::TypeScript::Generator.new(structs: [User, Address, Order])
+sorted = generator.sorted_structs
+
+writer = Dry::TypeScript::Writer.new
+writer.write_all(sorted)
+writer.cleanup(current_structs: sorted)
+```
+
+## Configuration
+
+### Global Configuration
 
 ```ruby
 Dry::TypeScript.configure do |config|
@@ -57,99 +131,22 @@ class User < Dry::Struct
 end
 ```
 
-### File Generation
-
-#### Using the Writer directly
+### Programmatic Usage
 
 ```ruby
-writer = Dry::TypeScript::Writer.new(output_dir: "app/javascript/types")
-writer.write_all([User, Address, Order])
-writer.cleanup(current_structs: [User, Address, Order])
-```
+class User < Dry::Struct
+  extend Dry::TypeScript::StructMethods
 
-#### Using the Generator
-
-```ruby
-generator = Dry::TypeScript::Generator.new(structs: [User, Address, Order])
-sorted = generator.sorted_structs  # Topologically sorted by dependencies
-
-writer = Dry::TypeScript::Writer.new
-writer.write_all(sorted)
-```
-
-#### Rake Tasks
-
-Add to your Rakefile:
-
-```ruby
-require 'dry/typescript/rake_task'
-
-Dry::TypeScript::RakeTask.new(:typescript) do |t|
-  t.output_dir = "app/javascript/types"
-  t.structs = [User, Address, Order]
+  attribute :name, Types::String
+  attribute :age, Types::Integer
+  attribute :email, Types::String.optional
 end
+
+User.to_typescript
+# => { typescript: "type User = {\n  name: string;\n  age: number;\n  email: string | null;\n}", dependencies: [] }
 ```
 
-This provides:
-- `rake typescript:generate` - Generate TypeScript files
-- `rake typescript:clean` - Remove generated files
-
-### Rails Integration with File Watching
-
-In Rails applications, dry-typescript can automatically regenerate TypeScript files when your struct files change.
-
-#### Setup
-
-1. Add the `listen` gem to your Gemfile:
-
-```ruby
-gem 'listen', group: :development
-```
-
-2. Configure in an initializer (`config/initializers/dry_typescript.rb`):
-
-```ruby
-Dry::TypeScript.configure do |config|
-  config.output_dir = Rails.root.join("app/javascript/types")
-  config.dirs = [
-    Rails.root.join("app/resources"),
-    Rails.root.join("app/structs")
-  ]
-end
-```
-
-The watcher automatically starts in development and regenerates TypeScript files when Ruby files in the configured directories change.
-
-#### Configuration Options
-
-```ruby
-# Force enable/disable listening (defaults to auto-detect)
-Dry::TypeScript.listen = true   # Force enable
-Dry::TypeScript.listen = false  # Force disable
-Dry::TypeScript.listen = nil    # Auto-detect (default)
-
-# Disable via environment variable
-ENV["DISABLE_DRY_TYPESCRIPT"] = "true"
-```
-
-#### Rake Tasks (Rails)
-
-When using Rails, these rake tasks are automatically available:
-
-- `rails dry_typescript:generate` - Generate TypeScript files from all Dry::Struct classes
-- `rails dry_typescript:refresh` - Clean and regenerate
-- `rails dry_typescript:clean` - Remove generated files
-- `rails dry_typescript:check` - Check if types are up to date (for CI)
-
-#### Debugging
-
-Enable debug output to see file watching activity:
-
-```bash
-DRY_TYPESCRIPT_DEBUG=1 rails server
-```
-
-### Features
+## Features
 
 - **Fingerprint-based change detection**: Only rewrites files when content changes
 - **Import generation**: Automatically generates imports for struct dependencies
