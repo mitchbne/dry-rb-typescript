@@ -32,15 +32,15 @@ class ListenTest < Minitest::Test
     ENV["RAILS_ENV"] = "development"
     Dir.mktmpdir do |dir|
       Dry::TypeScript.dirs = [dir]
-
       begin
         require "listen"
-        Dry::TypeScript::Listen.call(run_on_start: false)
-        assert Dry::TypeScript::Listen.started
 
-        first_call = Dry::TypeScript::Listen.started
         Dry::TypeScript::Listen.call(run_on_start: false)
-        assert_equal first_call, Dry::TypeScript::Listen.started
+        first_started = Dry::TypeScript::Listen.started
+        Dry::TypeScript::Listen.call(run_on_start: false)
+
+        assert first_started
+        assert_equal first_started, Dry::TypeScript::Listen.started
       rescue LoadError
         skip "listen gem not available"
       end
@@ -52,10 +52,11 @@ class ListenTest < Minitest::Test
   def test_does_not_start_with_empty_dirs
     ENV["RAILS_ENV"] = "development"
     Dry::TypeScript.dirs = []
-
     begin
       require "listen"
+
       Dry::TypeScript::Listen.call(run_on_start: false)
+
       refute Dry::TypeScript::Listen.started
     rescue LoadError
       skip "listen gem not available"
@@ -67,10 +68,11 @@ class ListenTest < Minitest::Test
   def test_does_not_start_with_nonexistent_dirs
     ENV["RAILS_ENV"] = "development"
     Dry::TypeScript.dirs = ["/nonexistent/path/12345"]
-
     begin
       require "listen"
+
       Dry::TypeScript::Listen.call(run_on_start: false)
+
       refute Dry::TypeScript::Listen.started
     rescue LoadError
       skip "listen gem not available"

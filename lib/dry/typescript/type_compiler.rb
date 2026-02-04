@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
+require_relative "ast_visitor_helpers"
+
 module Dry
   module TypeScript
     class UnsupportedTypeError < Error; end
 
     class TypeCompiler
+      include AstVisitorHelpers
+
       PRIMITIVE_MAP = {
         String => "string",
         Integer => "number",
@@ -25,7 +29,11 @@ module Dry
       end
 
       def call(type)
-        visit(type.to_ast)
+        compile_ast(type.to_ast)
+      end
+
+      def compile_ast(ast)
+        visit(ast)
       end
 
       private
@@ -53,36 +61,12 @@ module Dry
 
       def visit_sum(node)
         *types, _meta = node
-        ts_types = types.flat_map { |type| flatten_union(visit(type)) }.uniq
-
-        # Normalize: put null at the end for cleaner output
-        if ts_types.include?("null")
-          ts_types.delete("null")
-          ts_types << "null"
-        end
-
-        # If only one type remains after deduplication, return it directly
-        return ts_types.first if ts_types.size == 1
-
-        ts_types.join(" | ")
-      end
-
-      def flatten_union(ts_type)
-        # Split on " | " but not when inside parentheses
-        return [ts_type] unless ts_type.include?(" | ") && !ts_type.start_with?("(")
-
-        ts_type.split(" | ")
+        normalize_union(types.map { |type| visit(type) })
       end
 
       def visit_array(node)
         member_type, _meta = node
-        member_ts = visit(member_type)
-        member_ts = "(#{member_ts})" if needs_parens_in_array?(member_ts)
-        "#{member_ts}[]"
-      end
-
-      def needs_parens_in_array?(member_ts)
-        member_ts.include?(" | ") || member_ts.include?(" & ")
+        wrap_array_member(visit(member_type))
       end
 
       def visit_constrained(node)

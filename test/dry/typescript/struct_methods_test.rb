@@ -30,7 +30,7 @@ module Dry
         attribute :address, Address
       end
 
-      def test_basic_to_typescript
+      def test_generates_basic_typescript
         result = BasicUser.to_typescript
 
         expected = <<~TS.strip
@@ -39,40 +39,37 @@ module Dry
             age: number;
           }
         TS
-
         assert_equal expected, result[:typescript]
         assert_empty result[:dependencies]
       end
 
-      def test_to_typescript_with_custom_name
+      def test_accepts_custom_name_option
         result = BasicUser.to_typescript(name: "UserDTO")
 
         assert_match(/^type UserDTO = \{/, result[:typescript])
       end
 
-      def test_to_typescript_with_export
+      def test_accepts_export_option
         result = BasicUser.to_typescript(export: true)
 
         assert_match(/^export type BasicUser = \{/, result[:typescript])
       end
 
-      def test_to_typescript_with_both_options
+      def test_accepts_both_name_and_export_options
         result = BasicUser.to_typescript(name: "UserDTO", export: true)
 
         assert_match(/^export type UserDTO = \{/, result[:typescript])
       end
 
-      def test_to_typescript_tracks_dependencies
+      def test_tracks_dependencies
         result = UserWithAddress.to_typescript
 
         assert_includes result[:dependencies], Address
       end
 
-      def test_multiple_structs_with_dependencies
-        results = [UserWithAddress, Address].map(&:to_typescript)
-
-        user_result = results[0]
-        address_result = results[1]
+      def test_generates_correct_output_for_multiple_structs
+        user_result = UserWithAddress.to_typescript
+        address_result = Address.to_typescript
 
         assert_includes user_result[:typescript], "address: Address;"
         assert_includes address_result[:typescript], "city: string;"
@@ -80,7 +77,7 @@ module Dry
         assert_empty address_result[:dependencies]
       end
 
-      def test_to_typescript_returns_hash_with_typescript_and_dependencies
+      def test_returns_hash_with_typescript_and_dependencies_keys
         result = BasicUser.to_typescript
 
         assert_kind_of Hash, result

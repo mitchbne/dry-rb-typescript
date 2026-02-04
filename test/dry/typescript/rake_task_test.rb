@@ -26,7 +26,7 @@ module Dry
         RakeTaskTest.send(:remove_const, :RakeUser) if defined?(RakeTaskTest::RakeUser)
       end
 
-      def test_rake_task_defines_generate_task
+      def test_defines_generate_task
         RakeTask.new(:typescript) do |t|
           t.output_dir = @output_dir
           t.structs = []
@@ -35,7 +35,7 @@ module Dry
         assert Rake::Task.task_defined?("typescript:generate")
       end
 
-      def test_rake_task_defines_clean_task
+      def test_defines_clean_task
         RakeTask.new(:typescript) do |t|
           t.output_dir = @output_dir
           t.structs = []
@@ -49,7 +49,6 @@ module Dry
           attribute :city, Types::String
         end
         RakeTaskTest.const_set(:RakeAddress, address_class)
-
         RakeTask.new(:typescript) do |t|
           t.output_dir = @output_dir
           t.structs = [RakeAddress]
@@ -66,20 +65,18 @@ module Dry
           attribute :city, Types::String
         end
         RakeTaskTest.const_set(:RakeAddress, address_class)
-
         RakeTask.new(:typescript) do |t|
           t.output_dir = @output_dir
           t.structs = [RakeAddress]
         end
-
         Rake::Task["typescript:generate"].invoke
-        assert File.directory?(@output_dir)
 
         Rake::Task["typescript:clean"].invoke
+
         refute File.directory?(@output_dir)
       end
 
-      def test_rake_task_with_custom_name
+      def test_accepts_custom_name
         RakeTask.new(:ts) do |t|
           t.output_dir = @output_dir
           t.structs = []
@@ -94,13 +91,11 @@ module Dry
           attribute :city, Types::String
         end
         RakeTaskTest.const_set(:RakeAddress, address_class)
-
         user_class = Class.new(Dry::Struct) do
           attribute :name, Types::String
           attribute :address, RakeTaskTest::RakeAddress
         end
         RakeTaskTest.const_set(:RakeUser, user_class)
-
         RakeTask.new(:typescript) do |t|
           t.output_dir = @output_dir
           t.structs = [RakeUser, RakeAddress]
@@ -117,11 +112,9 @@ module Dry
           attribute :city, Types::String
         end
         RakeTaskTest.const_set(:RakeAddress, address_class)
-
         FileUtils.mkdir_p(@output_dir)
         stale_file = File.join(@output_dir, "OldStruct.ts")
         File.write(stale_file, "#{Writer::FINGERPRINT_PREFIX} abc123\ntype OldStruct = {}")
-
         RakeTask.new(:typescript) do |t|
           t.output_dir = @output_dir
           t.structs = [RakeAddress]

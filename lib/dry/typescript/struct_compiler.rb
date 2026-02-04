@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "ast_visitor_helpers"
+
 module Dry
   module TypeScript
     class StructCompiler
+      include AstVisitorHelpers
+
       def initialize(struct_class, type_name: nil, export: nil, type_compiler: nil)
         @struct_class = struct_class
         @config = build_effective_config(struct_class)
@@ -155,16 +159,8 @@ module Dry
       end
 
       def compile_sum_with_struct(type)
-        ts_types = collect_sum_types(type).flat_map { |t| flatten_union(compile_type(t)) }.uniq
-
-        if ts_types.include?("null")
-          ts_types.delete("null")
-          ts_types << "null"
-        end
-
-        return ts_types.first if ts_types.size == 1
-
-        ts_types.join(" | ")
+        ts_types = collect_sum_types(type).map { |t| compile_type(t) }
+        normalize_union(ts_types)
       end
 
       def collect_sum_types(type)
@@ -174,8 +170,7 @@ module Dry
       end
 
       def compile_with_struct_awareness(type)
-        ast = type.to_ast
-        visit(ast)
+        visit(type.to_ast)
       end
 
       def visit(node)
@@ -184,7 +179,7 @@ module Dry
         if respond_to?(method, true)
           send(method, body)
         else
-          @type_compiler.send(:visit, node)
+          @type_compiler.compile_ast(node)
         end
       end
 
@@ -193,39 +188,18 @@ module Dry
         if primitive.is_a?(Class) && primitive <= Dry::Struct
           handle_struct_type(primitive)
         else
-          @type_compiler.send(:visit, [:nominal, node])
+          @type_compiler.compile_ast([:nominal, node])
         end
       end
 
       def visit_sum(node)
         *types, _meta = node
-        ts_types = types.flat_map { |type| flatten_union(visit(type)) }.uniq
-
-        if ts_types.include?("null")
-          ts_types.delete("null")
-          ts_types << "null"
-        end
-
-        return ts_types.first if ts_types.size == 1
-
-        ts_types.join(" | ")
-      end
-
-      def flatten_union(ts_type)
-        return [ts_type] unless ts_type.include?(" | ") && !ts_type.start_with?("(")
-
-        ts_type.split(" | ")
+        normalize_union(types.map { |type| visit(type) })
       end
 
       def visit_array(node)
         member_type, _meta = node
-        member_ts = visit(member_type)
-        member_ts = "(#{member_ts})" if needs_parens_in_array?(member_ts)
-        "#{member_ts}[]"
-      end
-
-      def needs_parens_in_array?(member_ts)
-        member_ts.include?(" | ") || member_ts.include?(" & ")
+        wrap_array_member(visit(member_type))
       end
 
       def visit_constrained(node)

@@ -27,14 +27,18 @@ module Dry
         GeneratorTest.send(:remove_const, :TestLineItem) if defined?(GeneratorTest::TestLineItem)
       end
 
-      def test_generator_initializes_with_structs_array
+      def test_initializes_with_structs_array
         generator = Generator.new(structs: [])
+
         assert_equal [], generator.structs
       end
 
       def test_sorted_structs_returns_empty_for_no_structs
         generator = Generator.new(structs: [])
-        assert_equal [], generator.sorted_structs
+
+        result = generator.sorted_structs
+
+        assert_equal [], result
       end
 
       def test_sorted_structs_returns_single_struct
@@ -42,9 +46,11 @@ module Dry
           attribute :city, Types::String
         end
         GeneratorTest.const_set(:TestAddress, address_class)
-
         generator = Generator.new(structs: [TestAddress])
-        assert_equal [TestAddress], generator.sorted_structs
+
+        result = generator.sorted_structs
+
+        assert_equal [TestAddress], result
       end
 
       def test_sorted_structs_sorts_dependencies_first
@@ -52,14 +58,13 @@ module Dry
           attribute :city, Types::String
         end
         GeneratorTest.const_set(:TestAddress, address_class)
-
         user_class = Class.new(Dry::Struct) do
           attribute :name, Types::String
           attribute :address, GeneratorTest::TestAddress
         end
         GeneratorTest.const_set(:TestUser, user_class)
-
         generator = Generator.new(structs: [TestUser, TestAddress])
+
         sorted = generator.sorted_structs
 
         address_idx = sorted.index(TestAddress)
@@ -72,26 +77,23 @@ module Dry
           attribute :city, Types::String
         end
         GeneratorTest.const_set(:TestAddress, address_class)
-
         user_class = Class.new(Dry::Struct) do
           attribute :name, Types::String
           attribute :address, GeneratorTest::TestAddress
         end
         GeneratorTest.const_set(:TestUser, user_class)
-
         order_class = Class.new(Dry::Struct) do
           attribute :id, Types::Integer
           attribute :user, GeneratorTest::TestUser
         end
         GeneratorTest.const_set(:TestOrder, order_class)
-
         generator = Generator.new(structs: [TestOrder, TestUser, TestAddress])
+
         sorted = generator.sorted_structs
 
         address_idx = sorted.index(TestAddress)
         user_idx = sorted.index(TestUser)
         order_idx = sorted.index(TestOrder)
-
         assert address_idx < user_idx, "Address should come before User"
         assert user_idx < order_idx, "User should come before Order"
       end
@@ -101,14 +103,13 @@ module Dry
           attribute :city, Types::String
         end
         GeneratorTest.const_set(:TestAddress, address_class)
-
         user_class = Class.new(Dry::Struct) do
           attribute :name, Types::String
           attribute :address, GeneratorTest::TestAddress
         end
         GeneratorTest.const_set(:TestUser, user_class)
-
         generator = Generator.new(structs: [TestUser])
+
         sorted = generator.sorted_structs
 
         assert_equal [TestUser], sorted
@@ -119,18 +120,16 @@ module Dry
           attribute :city, Types::String
         end
         GeneratorTest.const_set(:TestAddress, address_class)
-
         user_class = Class.new(Dry::Struct) do
           attribute :name, Types::String
         end
         GeneratorTest.const_set(:TestUser, user_class)
-
         output_dir = File.join(@tmpdir, "types")
         Dry::TypeScript.configure do |config|
           config.output_dir = output_dir
         end
-
         generator = Generator.new(structs: [TestAddress, TestUser])
+
         result = generator.call
 
         assert_kind_of Hash, result
@@ -143,8 +142,8 @@ module Dry
           attribute :city, Types::String
         end
         GeneratorTest.const_set(:TestAddress, address_class)
-
         generator = Generator.new(structs: [TestAddress])
+
         result = generator.call
 
         assert_kind_of Hash, result[TestAddress]

@@ -24,7 +24,7 @@ module Dry
         assert_nil config.property_name_transformer
       end
 
-      def test_configure_block
+      def test_configure_block_sets_values
         Dry::TypeScript.configure do |config|
           config.output_dir = "app/javascript/types"
           config.null_strategy = :optional
@@ -48,7 +48,7 @@ module Dry
         assert_equal "Date", Dry::TypeScript.config.type_mappings[Date]
       end
 
-      def test_null_strategy_validation
+      def test_null_strategy_validation_raises_for_invalid_value
         config = Config.new
 
         assert_raises(ArgumentError) do
@@ -56,38 +56,51 @@ module Dry
         end
       end
 
-      def test_valid_null_strategies
+      def test_accepts_nullable_strategy
         config = Config.new
 
         config.null_strategy = :nullable
+
         assert_equal :nullable, config.null_strategy
+      end
+
+      def test_accepts_optional_strategy
+        config = Config.new
 
         config.null_strategy = :optional
+
         assert_equal :optional, config.null_strategy
+      end
+
+      def test_accepts_nullable_and_optional_strategy
+        config = Config.new
 
         config.null_strategy = :nullable_and_optional
+
         assert_equal :nullable_and_optional, config.null_strategy
       end
 
-      def test_type_name_transformer
+      def test_type_name_transformer_transforms_names
         Dry::TypeScript.configure do |config|
           config.type_name_transformer = ->(name) { "#{name}DTO" }
         end
 
         result = Dry::TypeScript.config.type_name_transformer.call("User")
+
         assert_equal "UserDTO", result
       end
 
-      def test_property_name_transformer
+      def test_property_name_transformer_transforms_names
         Dry::TypeScript.configure do |config|
           config.property_name_transformer = ->(name) { name.to_s.upcase }
         end
 
         result = Dry::TypeScript.config.property_name_transformer.call("first_name")
+
         assert_equal "FIRST_NAME", result
       end
 
-      def test_config_dup
+      def test_dup_creates_independent_copy
         config = Config.new
         config.output_dir = "original"
         config.type_mappings[Date] = "Date"
@@ -101,12 +114,12 @@ module Dry
         refute config.type_mappings.key?(Range)
       end
 
-      def test_merge_config
+      def test_merge_applies_overrides
         base = Config.new
         base.output_dir = "base_dir"
         base.null_strategy = :nullable
-
         overrides = { output_dir: "override_dir", export_keyword: true }
+
         merged = base.merge(overrides)
 
         assert_equal "override_dir", merged.output_dir
@@ -114,25 +127,27 @@ module Dry
         assert_equal true, merged.export_keyword
       end
 
-      def test_export_alias
+      def test_export_alias_works_bidirectionally
         config = Config.new
 
         config.export = true
+
         assert_equal true, config.export
         assert_equal true, config.export_keyword
 
         config.export_keyword = false
+
         assert_equal false, config.export
       end
 
-      def test_type_mappings_returns_copy
+      def test_type_mappings_returns_copy_to_prevent_mutation
         config = Config.new
+
         mappings = config.type_mappings
         mappings[Range] = "Range"
 
         refute config.type_mappings.key?(Range)
       end
-
     end
 
     class TypeCompilerWithConfigTest < Minitest::Test
@@ -140,25 +155,29 @@ module Dry
         Dry::TypeScript.instance_variable_set(:@config, Config.new)
       end
 
-      def test_type_compiler_uses_global_type_mappings
+      def test_uses_global_type_mappings
         Dry::TypeScript.configure do |config|
           config.type_mappings = config.type_mappings.merge(Date => "Date")
         end
-
         compiler = TypeCompiler.new
         type = Dry::Types["date"]
-        assert_equal "Date", compiler.call(type)
+
+        result = compiler.call(type)
+
+        assert_equal "Date", result
       end
 
-      def test_type_compiler_local_overrides_global
+      def test_local_primitive_map_overrides_global
         Dry::TypeScript.configure do |config|
           config.type_mappings = config.type_mappings.merge(Date => "Date")
         end
-
         custom_map = TypeCompiler::PRIMITIVE_MAP.merge(Date => "string")
         compiler = TypeCompiler.new(primitive_map: custom_map)
         type = Dry::Types["date"]
-        assert_equal "string", compiler.call(type)
+
+        result = compiler.call(type)
+
+        assert_equal "string", result
       end
     end
 
@@ -176,67 +195,67 @@ module Dry
         Dry::TypeScript.instance_variable_set(:@config, Config.new)
       end
 
-      def test_struct_compiler_uses_export_keyword_from_config
+      def test_uses_export_keyword_from_config
         Dry::TypeScript.configure do |config|
           config.export_keyword = true
         end
-
         compiler = StructCompiler.new(ConfigTestUser)
+
         result = compiler.call
 
         assert_match(/^export type ConfigTestUser/, result[:typescript])
       end
 
-      def test_struct_compiler_export_option_overrides_config
+      def test_export_option_overrides_config
         Dry::TypeScript.configure do |config|
           config.export_keyword = true
         end
-
         compiler = StructCompiler.new(ConfigTestUser, export: false)
+
         result = compiler.call
 
         refute_match(/^export/, result[:typescript])
       end
 
-      def test_null_strategy_nullable
+      def test_null_strategy_nullable_outputs_union
         Dry::TypeScript.configure do |config|
           config.null_strategy = :nullable
         end
-
         compiler = StructCompiler.new(ConfigTestUser)
+
         result = compiler.call
 
         assert_includes result[:typescript], "email: string | null;"
       end
 
-      def test_null_strategy_optional
+      def test_null_strategy_optional_outputs_question_mark
         Dry::TypeScript.configure do |config|
           config.null_strategy = :optional
         end
-
         compiler = StructCompiler.new(ConfigTestUser)
+
         result = compiler.call
 
         assert_includes result[:typescript], "email?: string;"
       end
 
-      def test_null_strategy_nullable_and_optional
+      def test_null_strategy_nullable_and_optional_outputs_both
         Dry::TypeScript.configure do |config|
           config.null_strategy = :nullable_and_optional
         end
-
         compiler = StructCompiler.new(ConfigTestUser)
+
         result = compiler.call
 
         assert_includes result[:typescript], "email?: string | null;"
       end
 
-      def test_type_name_transformer
+      def test_type_name_transformer_applies_to_output
         Dry::TypeScript.configure do |config|
           config.type_name_transformer = ->(name) { "#{name}Response" }
         end
-
         compiler = StructCompiler.new(ConfigTestUser)
+
         result = compiler.call
 
         assert_match(/^type ConfigTestUserResponse = \{/, result[:typescript])
@@ -246,19 +265,19 @@ module Dry
         Dry::TypeScript.configure do |config|
           config.type_name_transformer = ->(name) { "#{name}Response" }
         end
-
         compiler = StructCompiler.new(ConfigTestUser, type_name: "CustomName")
+
         result = compiler.call
 
         assert_match(/^type CustomName = \{/, result[:typescript])
       end
 
-      def test_property_name_transformer
+      def test_property_name_transformer_applies_to_properties
         Dry::TypeScript.configure do |config|
           config.property_name_transformer = ->(name) { name.to_s.upcase }
         end
-
         compiler = StructCompiler.new(ConfigTestUser)
+
         result = compiler.call
 
         assert_includes result[:typescript], "NAME: string;"
@@ -293,6 +312,7 @@ module Dry
         Dry::TypeScript.instance_variable_set(:@config, Config.new)
 
         result = UserWithConfig.to_typescript
+
         assert_match(/^export type UserResponse = \{/, result[:typescript])
       end
 
@@ -302,6 +322,7 @@ module Dry
         end
 
         result = UserWithNullConfig.to_typescript
+
         assert_includes result[:typescript], "bio?: string;"
       end
 
@@ -309,14 +330,13 @@ module Dry
         Dry::TypeScript.configure do |config|
           config.export_keyword = false
         end
-
         compiler = StructCompiler.new(ConfigTestUser)
-
         Dry::TypeScript.configure do |config|
           config.export_keyword = true
         end
 
         result = compiler.call
+
         refute_match(/^export/, result[:typescript])
       end
     end
