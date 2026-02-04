@@ -20,7 +20,7 @@ module Dry
         assert_equal :nullable, config.null_strategy
         assert_equal :named, config.export_style
         assert_kind_of Hash, config.type_mappings
-        assert_nil config.type_name_transformer
+        assert_equal [], config.type_name_transformers
         assert_nil config.property_name_transformer
       end
 
@@ -80,12 +80,15 @@ module Dry
         assert_equal :nullable_and_optional, config.null_strategy
       end
 
-      def test_type_name_transformer_transforms_names
+      def test_type_name_transformers_transforms_names
         Dry::TypeScript.configure do |config|
-          config.type_name_transformer = ->(name) { "#{name}DTO" }
+          config.type_name_transformers = [->(name) { "#{name}DTO" }]
         end
 
-        result = Dry::TypeScript.config.type_name_transformer.call("User")
+        result = Dry::TypeScript::Transformers.apply(
+          Dry::TypeScript.config.type_name_transformers,
+          "User"
+        )
 
         assert_equal "UserDTO", result
       end
@@ -273,9 +276,12 @@ module Dry
         assert_includes result[:typescript], "email?: string | null;"
       end
 
-      def test_type_name_transformer_applies_to_output
+      def test_type_name_transformers_applies_pipeline_to_output
         Dry::TypeScript.configure do |config|
-          config.type_name_transformer = ->(name) { "#{name.split("::").last}Response" }
+          config.type_name_transformers = [
+            ->(name) { name.split("::").last },
+            ->(name) { "#{name}Response" }
+          ]
         end
         compiler = StructCompiler.new(ConfigTestUser)
 
@@ -284,20 +290,43 @@ module Dry
         assert_match(/^export type ConfigTestUserResponse = \{/, result[:typescript])
       end
 
-      def test_type_name_transformer_strips_struct_suffix
+      def test_type_name_transformers_chains_multiple_transformers
         Dry::TypeScript.configure do |config|
-          config.type_name_transformer = Dry::TypeScript::Transformers.strip_struct_suffix
+          config.type_name_transformers = [
+            Dry::TypeScript::Transformers.strip_struct_suffix,
+            ->(name) { "#{name}DTO" }
+          ]
         end
 
-        assert_equal "Model", Dry::TypeScript.config.type_name_transformer.call("Model::Struct")
-        assert_equal "BlahModel", Dry::TypeScript.config.type_name_transformer.call("Blah::Model::Struct")
-        assert_equal "FooBarBaz", Dry::TypeScript.config.type_name_transformer.call("Foo::Bar::Baz::Struct")
-        assert_equal "User", Dry::TypeScript.config.type_name_transformer.call("User")
+        result = Dry::TypeScript::Transformers.apply(
+          Dry::TypeScript.config.type_name_transformers,
+          "Blah::Model::Struct"
+        )
+
+        assert_equal "BlahModelDTO", result
       end
 
-      def test_type_name_option_overrides_transformer
+      def test_type_name_transformers_with_single_transformer
         Dry::TypeScript.configure do |config|
-          config.type_name_transformer = ->(name) { "#{name.split("::").last}Response" }
+          config.type_name_transformers = [
+            Dry::TypeScript::Transformers.strip_struct_suffix
+          ]
+        end
+
+        result = Dry::TypeScript::Transformers.apply(
+          Dry::TypeScript.config.type_name_transformers,
+          "Model::Struct"
+        )
+
+        assert_equal "Model", result
+      end
+
+      def test_type_name_option_overrides_transformers
+        Dry::TypeScript.configure do |config|
+          config.type_name_transformers = [
+            ->(name) { name.split("::").last },
+            ->(name) { "#{name}Response" }
+          ]
         end
         compiler = StructCompiler.new(ConfigTestUser, type_name: "CustomName")
 

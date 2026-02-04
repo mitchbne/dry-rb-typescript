@@ -8,8 +8,9 @@ module Dry
           return struct_class._typescript_config.type_name
         end
 
-        if Dry::TypeScript.config.type_name_transformer
-          Dry::TypeScript.config.type_name_transformer.call(struct_class.name)
+        transformers = Dry::TypeScript.config.type_name_transformers
+        if transformers.any?
+          Transformers.apply(transformers, struct_class.name)
         else
           struct_class.name.split("::").last
         end

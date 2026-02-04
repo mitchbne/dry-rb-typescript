@@ -6,7 +6,7 @@ module Dry
       VALID_NULL_STRATEGIES = %i[nullable optional nullable_and_optional].freeze
       VALID_EXPORT_STYLES = %i[named default].freeze
 
-      attr_accessor :output_dir, :type_name_transformer, :property_name_transformer, :dirs, :listen
+      attr_accessor :output_dir, :type_name_transformers, :property_name_transformer, :dirs, :listen
       attr_reader :null_strategy, :export_style
 
       def initialize
@@ -14,7 +14,7 @@ module Dry
         @null_strategy = :nullable
         @export_style = :named
         @type_mappings = TypeCompiler::PRIMITIVE_MAP.dup
-        @type_name_transformer = nil
+        @type_name_transformers = []
         @property_name_transformer = nil
         @dirs = []
         @listen = nil

@@ -24,8 +24,9 @@ module Dry
       end
 
       def transform_type_name(name)
-        if @config.type_name_transformer
-          @config.type_name_transformer.call(name)
+        transformers = @config.type_name_transformers
+        if transformers.any?
+          Transformers.apply(transformers, name)
         else
           name.split("::").last
         end

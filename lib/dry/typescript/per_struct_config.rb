@@ -4,14 +4,14 @@ module Dry
   module TypeScript
     class StructConfigLayer
       attr_accessor :type_name, :export_style, :null_strategy, :type_mappings,
-                    :type_name_transformer, :property_name_transformer
+                    :type_name_transformers, :property_name_transformer
 
       def initialize
         @type_name = nil
         @export_style = nil
         @null_strategy = nil
         @type_mappings = nil
-        @type_name_transformer = nil
+        @type_name_transformers = nil
         @property_name_transformer = nil
       end
 
@@ -21,7 +21,7 @@ module Dry
           export_style: @export_style,
           null_strategy: @null_strategy,
           type_mappings: @type_mappings,
-          type_name_transformer: @type_name_transformer,
+          type_name_transformers: @type_name_transformers,
           property_name_transformer: @property_name_transformer
         }.compact
       end

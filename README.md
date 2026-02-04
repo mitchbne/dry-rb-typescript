@@ -110,7 +110,7 @@ Dry::TypeScript.configure do |config|
   config.output_dir = "app/javascript/types"
   config.export_style = :named    # :named (default) or :default
   config.null_strategy = :optional  # :nullable, :optional, or :nullable_and_optional
-  config.type_name_transformer = ->(name) { "#{name}DTO" }
+  config.type_name_transformers = [Dry::TypeScript::Transformers.strip_struct_suffix]
   config.property_name_transformer = ->(name) { name.to_s.camelize(:lower) }
 end
 ```
@@ -132,7 +132,7 @@ class User < Dry::Struct
     config.type_name = "UserResponse"           # Custom TypeScript type name
     config.export_style = :default              # :named or :default
     config.null_strategy = :optional            # :nullable, :optional, or :nullable_and_optional
-    config.type_name_transformer = ->(name) { "#{name}DTO" }
+    config.type_name_transformers = [Dry::TypeScript::Transformers.strip_struct_suffix]
     config.property_name_transformer = ->(name) { name.to_s.camelize(:lower) }
   end
 
