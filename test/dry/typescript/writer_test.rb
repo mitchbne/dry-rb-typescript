@@ -6,26 +6,57 @@ require "tmpdir"
 
 module Dry
   module TypeScript
-    class WriterTest < Minitest::Test
-      module Types
-        include Dry.Types
-      end
+    module WriterTestHelper
+      Types = Dry.Types
 
-      def setup
+      private
+
+      def setup_writer(barrel_file:)
         @tmpdir = Dir.mktmpdir("dry_typescript_writer_test")
         @output_dir = File.join(@tmpdir, "types")
         @original_config = Dry::TypeScript.config.dup
         Dry::TypeScript.configure do |config|
           config.output_dir = @output_dir
+          config.barrel_file = barrel_file
         end
       end
 
-      def teardown
+      def teardown_writer
         FileUtils.rm_rf(@tmpdir)
         Dry::TypeScript.instance_variable_set(:@config, @original_config)
-        WriterTest.send(:remove_const, :TestAddress) if defined?(WriterTest::TestAddress)
-        WriterTest.send(:remove_const, :TestUser) if defined?(WriterTest::TestUser)
-        WriterTest.send(:remove_const, :TestOrder) if defined?(WriterTest::TestOrder)
+        WriterTestHelper.send(:remove_const, :TestAddress) if defined?(WriterTestHelper::TestAddress)
+        WriterTestHelper.send(:remove_const, :TestUser) if defined?(WriterTestHelper::TestUser)
+        WriterTestHelper.send(:remove_const, :TestOrder) if defined?(WriterTestHelper::TestOrder)
+      end
+
+      def make_address(**attrs)
+        types = WriterTestHelper::Types
+        attrs = { city: types::String } if attrs.empty?
+        klass = Class.new(Dry::Struct) { attrs.each { |name, type| attribute name, type } }
+        WriterTestHelper.const_set(:TestAddress, klass)
+      end
+
+      def make_user(**attrs)
+        klass = Class.new(Dry::Struct) { attrs.each { |name, type| attribute name, type } }
+        WriterTestHelper.const_set(:TestUser, klass)
+      end
+
+      def make_order(**attrs)
+        klass = Class.new(Dry::Struct) { attrs.each { |name, type| attribute name, type } }
+        WriterTestHelper.const_set(:TestOrder, klass)
+      end
+    end
+
+    class WriterWithoutBarrelFileTest < Minitest::Test
+      include WriterTestHelper
+
+      def setup
+        setup_writer(barrel_file: false)
+        @types = WriterTestHelper::Types
+      end
+
+      def teardown
+        teardown_writer
       end
 
       def test_initializes_with_output_dir
@@ -41,13 +72,10 @@ module Dry
       end
 
       def test_write_creates_single_file
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write(TestAddress)
+        result = writer.write(WriterTestHelper::TestAddress)
 
         assert File.exist?(result)
         assert_match(/TestAddress\.ts$/, result)
@@ -57,33 +85,23 @@ module Dry
       end
 
       def test_write_creates_output_directory
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         new_output = File.join(@tmpdir, "new", "nested", "types")
         writer = Writer.new(output_dir: new_output)
 
-        result = writer.write(TestAddress)
+        result = writer.write(WriterTestHelper::TestAddress)
 
         assert File.directory?(new_output)
         assert File.exist?(result)
       end
 
       def test_write_generates_import_for_dependency
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        user_class = Class.new(Dry::Struct) do
-          attribute :name, Types::String
-          attribute :address, WriterTest::TestAddress
-        end
-        WriterTest.const_set(:TestUser, user_class)
+        make_address
+        make_user(name: @types::String, address: WriterTestHelper::TestAddress)
         writer = Writer.new(output_dir: @output_dir)
-        writer.write(TestAddress)
+        writer.write(WriterTestHelper::TestAddress)
 
-        result = writer.write(TestUser)
+        result = writer.write(WriterTestHelper::TestUser)
 
         content = File.read(result)
         assert_includes content, "import type { TestAddress } from './TestAddress'"
@@ -91,26 +109,20 @@ module Dry
       end
 
       def test_write_includes_fingerprint_comment
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write(TestAddress)
+        result = writer.write(WriterTestHelper::TestAddress)
 
         content = File.read(result)
         assert_match(/^\/\/ dry-typescript fingerprint: [a-f0-9]{32}$/, content.lines.first.chomp)
       end
 
       def test_write_includes_generated_from_comment
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write(TestAddress)
+        result = writer.write(WriterTestHelper::TestAddress)
 
         content = File.read(result)
         assert_includes content, "// Generated by dry-typescript"
@@ -118,139 +130,57 @@ module Dry
       end
 
       def test_write_skips_unchanged_file
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         writer = Writer.new(output_dir: @output_dir)
-        result1 = writer.write(TestAddress)
+        result1 = writer.write(WriterTestHelper::TestAddress)
         mtime1 = File.mtime(result1)
         sleep 0.01
 
-        result2 = writer.write(TestAddress)
+        result2 = writer.write(WriterTestHelper::TestAddress)
 
         mtime2 = File.mtime(result2)
         assert_equal mtime1, mtime2, "File should not be rewritten if unchanged"
       end
 
       def test_write_updates_changed_file
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         writer = Writer.new(output_dir: @output_dir)
-        result1 = writer.write(TestAddress)
+        result1 = writer.write(WriterTestHelper::TestAddress)
         original_content = File.read(result1)
         File.write(result1, "// modified content\n")
         modified_time = File.mtime(result1)
         sleep 0.01
 
-        result2 = writer.write(TestAddress)
+        result2 = writer.write(WriterTestHelper::TestAddress)
 
         new_content = File.read(result2)
         refute_equal modified_time, File.mtime(result2)
         assert_equal original_content, new_content
       end
 
-      def test_write_index_creates_barrel_export
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        user_class = Class.new(Dry::Struct) do
-          attribute :name, Types::String
-        end
-        WriterTest.const_set(:TestUser, user_class)
-        writer = Writer.new(output_dir: @output_dir)
-        writer.write(TestAddress)
-        writer.write(TestUser)
-
-        index_path = writer.write_index([TestAddress, TestUser])
-
-        assert File.exist?(index_path)
-        content = File.read(index_path)
-        assert_includes content, "export type { TestAddress } from './TestAddress'"
-        assert_includes content, "export type { TestUser } from './TestUser'"
-      end
-
-      def test_cleanup_removes_stale_generated_files
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        writer = Writer.new(output_dir: @output_dir)
-        writer.write(TestAddress)
-        stale_file = File.join(@output_dir, "OldStruct.ts")
-        File.write(stale_file, "#{Writer::FINGERPRINT_PREFIX} abc123\ntype OldStruct = {}")
-
-        writer.cleanup(current_structs: [TestAddress])
-
-        refute File.exist?(stale_file), "Stale generated file should be removed"
-        assert File.exist?(File.join(@output_dir, "TestAddress.ts")), "Current file should remain"
-      end
-
-      def test_cleanup_preserves_index_file
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        writer = Writer.new(output_dir: @output_dir)
-        writer.write(TestAddress)
-        writer.write_index([TestAddress])
-
-        writer.cleanup(current_structs: [TestAddress])
-
-        assert File.exist?(File.join(@output_dir, "index.ts")), "Index file should remain"
-      end
-
-      def test_write_all_writes_multiple_structs_with_index
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        user_class = Class.new(Dry::Struct) do
-          attribute :name, Types::String
-          attribute :address, WriterTest::TestAddress
-        end
-        WriterTest.const_set(:TestUser, user_class)
-        writer = Writer.new(output_dir: @output_dir)
-
-        result = writer.write_all([TestAddress, TestUser])
-
-        assert_includes result[:files], File.join(@output_dir, "TestAddress.ts")
-        assert_includes result[:files], File.join(@output_dir, "TestUser.ts")
-        assert_equal File.join(@output_dir, "index.ts"), result[:index]
-      end
-
       def test_write_respects_named_export_style
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         Dry::TypeScript.configure do |config|
           config.output_dir = @output_dir
           config.export_style = :named
         end
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write(TestAddress)
+        result = writer.write(WriterTestHelper::TestAddress)
 
         content = File.read(result)
         assert_includes content, "export type TestAddress"
       end
 
       def test_write_respects_default_export_style
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         Dry::TypeScript.configure do |config|
           config.output_dir = @output_dir
           config.export_style = :default
         end
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write(TestAddress)
+        result = writer.write(WriterTestHelper::TestAddress)
 
         content = File.read(result)
         assert_includes content, "type TestAddress"
@@ -258,73 +188,74 @@ module Dry
       end
 
       def test_write_force_overwrites_file
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+        make_address
         writer = Writer.new(output_dir: @output_dir)
-        result1 = writer.write(TestAddress)
+        result1 = writer.write(WriterTestHelper::TestAddress)
         mtime1 = File.mtime(result1)
         sleep 0.01
 
-        result2 = writer.write(TestAddress, force: true)
+        result2 = writer.write(WriterTestHelper::TestAddress, force: true)
 
         mtime2 = File.mtime(result2)
         refute_equal mtime1, mtime2, "File should be rewritten with force: true"
       end
 
       def test_write_handles_multiple_dependencies
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        user_class = Class.new(Dry::Struct) do
-          attribute :name, Types::String
-        end
-        WriterTest.const_set(:TestUser, user_class)
-        order_class = Class.new(Dry::Struct) do
-          attribute :id, Types::Integer
-          attribute :user, WriterTest::TestUser
-          attribute :shipping_address, WriterTest::TestAddress
-        end
-        WriterTest.const_set(:TestOrder, order_class)
+        make_address
+        make_user(name: @types::String)
+        make_order(
+          id: @types::Integer,
+          user: WriterTestHelper::TestUser,
+          shipping_address: WriterTestHelper::TestAddress
+        )
         writer = Writer.new(output_dir: @output_dir)
-        writer.write(TestAddress)
-        writer.write(TestUser)
+        writer.write(WriterTestHelper::TestAddress)
+        writer.write(WriterTestHelper::TestUser)
 
-        result = writer.write(TestOrder)
+        result = writer.write(WriterTestHelper::TestOrder)
 
         content = File.read(result)
         assert_includes content, "import type { TestUser } from './TestUser'"
         assert_includes content, "import type { TestAddress } from './TestAddress'"
       end
 
-      def test_cleanup_preserves_non_generated_files
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
+      def test_cleanup_removes_stale_generated_files
+        make_address
         writer = Writer.new(output_dir: @output_dir)
-        writer.write(TestAddress)
+        writer.write(WriterTestHelper::TestAddress)
+        stale_file = File.join(@output_dir, "OldStruct.ts")
+        File.write(stale_file, "#{Writer::FINGERPRINT_PREFIX} abc123\ntype OldStruct = {}")
+
+        writer.cleanup(current_structs: [WriterTestHelper::TestAddress])
+
+        refute File.exist?(stale_file), "Stale generated file should be removed"
+        assert File.exist?(File.join(@output_dir, "TestAddress.ts")), "Current file should remain"
+      end
+
+      def test_cleanup_preserves_non_generated_files
+        make_address
+        writer = Writer.new(output_dir: @output_dir)
+        writer.write(WriterTestHelper::TestAddress)
         user_file = File.join(@output_dir, "CustomHelper.ts")
         File.write(user_file, "// user-authored file\nexport const helper = () => {}")
 
-        writer.cleanup(current_structs: [TestAddress])
+        writer.cleanup(current_structs: [WriterTestHelper::TestAddress])
 
         assert File.exist?(user_file), "User-authored file should remain"
         assert File.exist?(File.join(@output_dir, "TestAddress.ts"))
       end
 
       def test_write_all_detects_type_name_collisions
+        types = @types
         user1 = Class.new(Dry::Struct) do
-          attribute :name, Types::String
+          attribute :name, types::String
 
           def self.name
             "Nested1::TestUser"
           end
         end
         user2 = Class.new(Dry::Struct) do
-          attribute :email, Types::String
+          attribute :email, types::String
 
           def self.name
             "Nested2::TestUser"
@@ -338,23 +269,16 @@ module Dry
       end
 
       def test_imports_are_sorted_alphabetically
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        user_class = Class.new(Dry::Struct) do
-          attribute :name, Types::String
-        end
-        WriterTest.const_set(:TestUser, user_class)
-        order_class = Class.new(Dry::Struct) do
-          attribute :id, Types::Integer
-          attribute :user, WriterTest::TestUser
-          attribute :shipping_address, WriterTest::TestAddress
-        end
-        WriterTest.const_set(:TestOrder, order_class)
+        make_address
+        make_user(name: @types::String)
+        make_order(
+          id: @types::Integer,
+          user: WriterTestHelper::TestUser,
+          shipping_address: WriterTestHelper::TestAddress
+        )
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write_all([TestOrder, TestAddress, TestUser])
+        result = writer.write_all([WriterTestHelper::TestOrder, WriterTestHelper::TestAddress, WriterTestHelper::TestUser])
 
         content = File.read(result[:files].find { |f| f.include?("TestOrder") })
         lines = content.lines
@@ -363,18 +287,96 @@ module Dry
         assert address_line < user_line, "Imports should be sorted alphabetically"
       end
 
-      def test_index_exports_are_sorted_alphabetically
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        user_class = Class.new(Dry::Struct) do
-          attribute :name, Types::String
-        end
-        WriterTest.const_set(:TestUser, user_class)
+      def test_write_all_filters_imports_to_generated_set
+        make_address
+        make_user(name: @types::String, address: WriterTestHelper::TestAddress)
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write_all([TestUser, TestAddress])
+        result = writer.write_all([WriterTestHelper::TestUser])
+
+        content = File.read(result[:files].first)
+        refute_includes content, "import type { TestAddress }", "Should not import non-generated struct"
+      end
+
+      def test_write_all_skips_index_when_barrel_file_disabled
+        make_address
+        writer = Writer.new(output_dir: @output_dir)
+
+        result = writer.write_all([WriterTestHelper::TestAddress])
+
+        assert_nil result[:index]
+        refute File.exist?(File.join(@output_dir, "index.ts"))
+      end
+
+      def test_cleanup_does_not_expect_index_when_barrel_file_disabled
+        make_address
+        writer = Writer.new(output_dir: @output_dir)
+        writer.write(WriterTestHelper::TestAddress)
+        stale_index = File.join(@output_dir, "index.ts")
+        File.write(stale_index, "#{Writer::FINGERPRINT_PREFIX} abc123\nexport {}")
+
+        writer.cleanup(current_structs: [WriterTestHelper::TestAddress])
+
+        refute File.exist?(stale_index), "Stale index should be removed when barrel_file disabled"
+      end
+    end
+
+    class WriterWithBarrelFileTest < Minitest::Test
+      include WriterTestHelper
+
+      def setup
+        setup_writer(barrel_file: true)
+        @types = WriterTestHelper::Types
+      end
+
+      def teardown
+        teardown_writer
+      end
+
+      def test_write_index_creates_barrel_export
+        make_address
+        make_user(name: @types::String)
+        writer = Writer.new(output_dir: @output_dir)
+        writer.write(WriterTestHelper::TestAddress)
+        writer.write(WriterTestHelper::TestUser)
+
+        index_path = writer.write_index([WriterTestHelper::TestAddress, WriterTestHelper::TestUser])
+
+        assert File.exist?(index_path)
+        content = File.read(index_path)
+        assert_includes content, "export type { TestAddress } from './TestAddress'"
+        assert_includes content, "export type { TestUser } from './TestUser'"
+      end
+
+      def test_cleanup_preserves_index_file
+        make_address
+        writer = Writer.new(output_dir: @output_dir)
+        writer.write(WriterTestHelper::TestAddress)
+        writer.write_index([WriterTestHelper::TestAddress])
+
+        writer.cleanup(current_structs: [WriterTestHelper::TestAddress])
+
+        assert File.exist?(File.join(@output_dir, "index.ts")), "Index file should remain"
+      end
+
+      def test_write_all_writes_multiple_structs_with_index
+        make_address
+        make_user(name: @types::String, address: WriterTestHelper::TestAddress)
+        writer = Writer.new(output_dir: @output_dir)
+
+        result = writer.write_all([WriterTestHelper::TestAddress, WriterTestHelper::TestUser])
+
+        assert_includes result[:files], File.join(@output_dir, "TestAddress.ts")
+        assert_includes result[:files], File.join(@output_dir, "TestUser.ts")
+        assert_equal File.join(@output_dir, "index.ts"), result[:index]
+      end
+
+      def test_index_exports_are_sorted_alphabetically
+        make_address
+        make_user(name: @types::String)
+        writer = Writer.new(output_dir: @output_dir)
+
+        result = writer.write_all([WriterTestHelper::TestUser, WriterTestHelper::TestAddress])
 
         content = File.read(result[:index])
         lines = content.lines
@@ -383,22 +385,14 @@ module Dry
         assert address_line < user_line, "Index exports should be sorted alphabetically"
       end
 
-      def test_write_all_filters_imports_to_generated_set
-        address_class = Class.new(Dry::Struct) do
-          attribute :city, Types::String
-        end
-        WriterTest.const_set(:TestAddress, address_class)
-        user_class = Class.new(Dry::Struct) do
-          attribute :name, Types::String
-          attribute :address, WriterTest::TestAddress
-        end
-        WriterTest.const_set(:TestUser, user_class)
+      def test_write_all_creates_index_when_barrel_file_enabled
+        make_address
         writer = Writer.new(output_dir: @output_dir)
 
-        result = writer.write_all([TestUser])
+        result = writer.write_all([WriterTestHelper::TestAddress])
 
-        content = File.read(result[:files].first)
-        refute_includes content, "import type { TestAddress }", "Should not import non-generated struct"
+        assert_equal File.join(@output_dir, "index.ts"), result[:index]
+        assert File.exist?(File.join(@output_dir, "index.ts"))
       end
     end
   end

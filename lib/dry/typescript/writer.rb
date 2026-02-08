@@ -42,7 +42,7 @@ module Dry
         @generated_set = struct_classes.to_set
 
         files = struct_classes.map { |s| write(s) }
-        index = write_index(struct_classes)
+        index = Dry::TypeScript.config.barrel_file ? write_index(struct_classes) : nil
 
         @generated_set = nil
 
@@ -68,7 +68,7 @@ module Dry
         return unless File.directory?(@output_dir)
 
         expected_files = current_structs.map { |s| "#{extract_type_name(s)}.ts" }
-        expected_files << "index.ts"
+        expected_files << "index.ts" if Dry::TypeScript.config.barrel_file
 
         Dir[File.join(@output_dir, "*.ts")].each do |filepath|
           next if expected_files.include?(File.basename(filepath))

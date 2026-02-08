@@ -11,10 +11,25 @@ class RailsE2ETest < Minitest::Test
   def setup
     cleanup_generated_files
     boot_rails_app
+    apply_rails_config
   end
 
   def teardown
     cleanup_generated_files
+    reset_config
+  end
+
+  def apply_rails_config
+    Dry::TypeScript.configure do |config|
+      config.output_dir = Pathname.new(TYPES_DIR)
+      config.dirs = [Pathname.new(File.join(RAILS_APP_DIR, "app/structs"))]
+      config.listen = false
+      config.type_name_transformers = [Dry::TypeScript::Transformers.strip_struct_suffix]
+    end
+  end
+
+  def reset_config
+    Dry::TypeScript.instance_variable_set(:@config, Dry::TypeScript::Config.new)
   end
 
   def test_railtie_configures_output_dir
@@ -40,7 +55,6 @@ class RailsE2ETest < Minitest::Test
 
     assert_file_matches_expected("Address.ts")
     assert_file_matches_expected("User.ts")
-    assert_file_matches_expected("index.ts")
   end
 
   def test_user_depends_on_address

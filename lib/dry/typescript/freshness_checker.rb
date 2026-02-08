@@ -58,7 +58,7 @@ module Dry
           content[filename] = build_file_content(result, filter_imports_to: sorted)
         end
 
-        content["index.ts"] = build_index_content(sorted)
+        content["index.ts"] = build_index_content(sorted) if Dry::TypeScript.config.barrel_file
         content
       end
 

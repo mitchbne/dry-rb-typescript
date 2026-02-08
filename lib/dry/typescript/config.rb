@@ -6,7 +6,7 @@ module Dry
       VALID_NULL_STRATEGIES = %i[nullable optional nullable_and_optional].freeze
       VALID_EXPORT_STYLES = %i[named default].freeze
 
-      attr_accessor :output_dir, :type_name_transformers, :property_name_transformer, :dirs, :listen
+      attr_accessor :output_dir, :type_name_transformers, :property_name_transformer, :dirs, :listen, :barrel_file
       attr_reader :null_strategy, :export_style
 
       def initialize
@@ -18,6 +18,7 @@ module Dry
         @property_name_transformer = nil
         @dirs = []
         @listen = nil
+        @barrel_file = false
       end
 
       def null_strategy=(value)

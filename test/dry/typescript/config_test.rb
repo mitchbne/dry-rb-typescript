@@ -22,6 +22,15 @@ module Dry
         assert_kind_of Hash, config.type_mappings
         assert_equal [], config.type_name_transformers
         assert_nil config.property_name_transformer
+        assert_equal false, config.barrel_file
+      end
+
+      def test_barrel_file_can_be_enabled
+        config = Config.new
+
+        config.barrel_file = true
+
+        assert_equal true, config.barrel_file
       end
 
       def test_configure_block_sets_values
